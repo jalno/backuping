@@ -107,6 +107,12 @@ class Backup {
 		if (self::$config["sources"] === null) {
 			self::$config["sources"] = array();
 		}
+		$id = $src->getID();
+		foreach (self::$config["sources"] as $source) {
+			if ($source->getID() == $id) {
+				throw new Error("packages.backuping.Backup.source_id_is_duplicate");
+			}
+		}
 		self::$config["sources"][] = $src;
 	}
 
