@@ -21,7 +21,6 @@ class MySQL implements IBackupable {
 		$log->info("start mysql backup");
 		$db = $this->getMysqliDB($options);
 
-		$prefix = $options["prefix"] ?? null;
 		$seprate = $options["seprate"] ?? true;
 
 		if ($seprate) {
@@ -33,14 +32,20 @@ class MySQL implements IBackupable {
 				$log->info("get backup of database: {$database}");
 				$time = Date::time();
 
-				$file = $repo->file(($prefix ? $prefix . "---" : "") . "{$database}---{$time}.sql.gz");
+				$file = $repo->file("{$database}-{$time}.sql.gz");
+
+				$log->info("check has gzip?");
+				$hasGzip = $this->ensureCommand("gzip");
+				$log->reply("done:", $hasGzip);
 
 				$command = "mysqldump";
 				$command .= " --host=" . $this->dbInfo["host"];
 				$command .= " --port=" . $this->dbInfo["port"];
 				$command .= " --user=" . $this->dbInfo["username"];
 				$command .= " --password=" . $this->dbInfo["password"];
-				$command .= " {$database} | gzip -c > " . $file->getPath();
+				$command .= " {$database} " . ($hasGzip ? "| gzip -c" : "") . " > " . $file->getPath();
+
+				$command = escapeshellcmd($command);
 
 				$log->info("run command:", $command);
 				$output = null;
@@ -56,7 +61,7 @@ class MySQL implements IBackupable {
 				}
 			}
 		} else {
-			$file = $repo->file(($prefix ? $prefix . "---" : "") . "{$time}.sql.gz");
+			$file = $repo->file("{$time}.sql.gz");
 
 			$command = "mysqldump";
 			$command .= " --host=" . $this->dbInfo["host"];
@@ -64,6 +69,13 @@ class MySQL implements IBackupable {
 			$command .= " --user=" . $this->dbInfo["username"];
 			$command .= " --password=" . $this->dbInfo["password"];
 			$command .= " --all-databases | gzip -c > " . $file->getPath();
+
+			$command = escapeshellcmd($command);
+
+			$output = null;
+			$status = null;
+			exec($command, $output, $status);
+			$log->reply("output:", $output, "status code:", $status);
 
 			if ($file->exists()) {
 				$log->reply("done, file size:", $file->size());
@@ -77,7 +89,60 @@ class MySQL implements IBackupable {
 
 	public function restore(Directory $repo, ?array $options = null) {
 		$db = $this->getMysqliDB($options);
+		$log = Log::getInstance();
+		$log->info("start mysql restore");
 
+		$log->info("check has gzip?");
+		$hasGzip = $this->ensureCommand("gzip");
+		$log->reply("done:", $hasGzip);
+
+		if ($hasGzip) {
+			$log->info("try extract gz files");
+			foreach ($repo->files(false) as $file) {
+				$log->info("file:", $file->getPath());
+				$ext = $file->getExtension();
+				if ($ext == "gz") {
+					$log->reply("is gz file! extract it");
+					$command = "gzip -d " . $file->getPath();
+					$log->info("run command:", $command);
+					$output = null;
+					$status = null;
+					exec($command, $output, $status);
+					$log->reply("output:", $output, "status code:", $status);
+				}
+			}
+		}
+
+		$log->info("try import each sql file...");
+		foreach ($repo->files(false) as $file) {
+			$log->info("file:", $file->getPath());
+			$ext = $file->getExtension();
+			if ($ext == "sql") {
+				$log->reply("is sql file, try import");
+
+				$lastdash = strrpos($file->basename, "-");
+				if ($lastdash === false) {
+					$log->error("file is not valid! can not find '-' char");
+					continue;
+				}
+				$tablename = substr($file->basename, 0, $lastdash);
+
+				$command = "mysql";
+				$command .= " --host=" . $this->dbInfo["host"];
+				$command .= " --port=" . $this->dbInfo["port"];
+				$command .= " --user=" . $this->dbInfo["username"];
+				$command .= " --password=" . $this->dbInfo["password"];
+				$command .= " {$tablename} < " . $file->getPath();
+
+				$command = escapeshellcmd($command);
+
+				$log->info("run command:", $command);
+				$output = null;
+				$status = null;
+				exec($command, $output, $status);
+				$log->reply("output:", $output, "status code:", $status);
+			}
+		}
 	}
 	protected function databases(bool $useCache = true): array {
 		if ($this->tables === null or !$useCache) {
@@ -130,5 +195,8 @@ class MySQL implements IBackupable {
 			$this->db = new MysqliDb($this->dbInfo["host"], $this->dbInfo["username"], $this->dbInfo["password"], null, $this->dbInfo["port"]);
 		}
 		return $this->db;
+	}
+	protected function ensureCommand(string $command): bool {
+		return boolval(shell_exec("command -v {$command}"));
 	}
 }

@@ -2,14 +2,17 @@
 namespace packages\backuping\processes;
 
 use \ZipArchive;
+use \InvalidArgumentException;
 use packages\base\{Log as BaseLog, IO, Options, Date, Process, Response};
 use packages\backuping\{Backup, Log, Report};
 
 class Backuping extends Process {
 
 	protected ?bool $verbose = false;
-	protected ?bool $dryRun = false;
 
+	/**
+	 * @param array<{"verbose": bool}> $data
+	 */
 	public function backup(array $data) {
 		$this->prerun($data);
 		$log = Log::getInstance();
@@ -27,7 +30,7 @@ class Backuping extends Process {
 				$zipFileName = $source->getID() . "-" . Date::time() . ".zip";
 				$log->reply("file name:", $zipFileName);
 				$zipFile = $zipFileDir->file($zipFileName);
-				$this->localDirZipMaker($backupRepoForSource, $zipFile);
+				$this->zipDirectoryToFile($backupRepoForSource, $zipFile);
 				$log->reply("done");
 
 				$log->info("transfer file to destinations");
@@ -43,17 +46,110 @@ class Backuping extends Process {
 			}
 		}
 
-		$this->report();
+		$this->report(array(
+			"subject" => "backup",
+		));
 	}
 
+	/**
+	 * @param array<{"verbose": bool, "sources": array<string>, "restore-backup-after": int}> $data
+	 */
 	public function restore(array $data) {
 		$this->prerun($data);
-		$log = BaseLog::getInstance();
+		$log = Log::getInstance();
+
+		$currentSourceIDs = array();
+		foreach (Backup::getSources() as $source) {
+			$currentSourceIDs[] = $source->getID();
+		}
+
+		$selectedSourceIDs = $data["sources"] ?? null;
+
+		if ($selectedSourceIDs) {
+			$selectedSourceIDs = is_array($selectedSourceIDs) ? $selectedSourceIDs : array($selectedSourceIDs);
+			foreach ($selectedSourceIDs as $selectedSourceID) {
+				if (!is_string($selectedSourceID)) {
+					$log->error("the given source id ({$selectedSourceID}) is not valid!");
+					throw new InvalidArgumentException("the given source id ({$selectedSourceID}) is not valid!");
+				}
+				if (!in_array($selectedSourceID, $currentSourceIDs)) {
+					$log->error("the given source id ({$selectedSourceID}) is not exists!");
+					throw new InvalidArgumentException("the given source id ({$selectedSourceID}) is not exists!");
+				}
+			}
+			$log->info("try restore backup of sources:", $selectedSourceIDs);
+		} else {
+			$log->info("restore backup of all sources");
+		}
+
+		$findBackupAfter = $data["restore-backup-after"] ?? null;
+		if (!$findBackupAfter) {
+			$log->error("you should pass 'restore-backup-after' (int) arg to find the last backup after this time");
+			throw new InvalidArgumentException("you should pass 'restore-backup-after' (int) arg to find the last backup after this time");
+		}
+		if (!is_numeric($findBackupAfter) or $findBackupAfter < 0) {
+			$log->error("the 'find-backup-after' is not numeric value or not greater than zero! value: {$findBackupAfter}");
+			throw new InvalidArgumentException("the 'restore-backup-after' is not numeric value or not greater than zero! value: {$findBackupAfter}");
+		}
+
+
+		$log->info("find the best backup of each source to restore");
+		foreach (Backup::getSources() as $source) {
+			$sourceID = $source->getID();
+			$log->info("get backups of source: ({$sourceID}) from destinations");
+			try {
+
+				$findedBackups = array();
+				$log->info("check each destinations");
+				foreach (Backup::getDestinations() as $destination) {
+					$directory = $destination->getDirectory();
+					foreach ($directory->files(false) as $file) {
+						if (
+							substr($file->basename, 0, strlen($sourceID) + 1) == $sourceID . '-' and
+							preg_match("/\\-(\d+)\\.zip$/", $file->basename, $matches)
+						) {
+							if ($matches[1] >= $findBackupAfter) {
+								$findedBackups[$matches[1]] = $file;
+							}
+						}
+					}
+				}
+				if ($findedBackups) {
+					$log->info("find (" . count($findedBackups) . ") backup for source: ({$sourceID}), find last backup");
+					$lastKey = max(array_keys($findedBackups));
+					$backupFile = $findedBackups[$lastKey];
+
+					$log->info("try restore backup: (" . $backupFile->getPath() . ") to source: ({$sourceID})");
+
+					$zipFileDir = new IO\Directory\TMP();
+					$log->info("try extract file to:", $zipFileDir->getPath());
+					$this->extractZipFileToDirectory($backupFile, $zipFileDir);
+					$log->reply("done");
+
+					$log->info("call source ({$sourceID}) restore ...");
+					$backupable = $source->getBackupable();
+					$backupable->restore($zipFileDir, $source->getOptions());
+					$log->reply("done");
+				} else {
+					$log->warn("can not find any backup for source: ({$sourceID}) after: ({$findBackupAfter})");
+				}
+
+			} catch (\Exception $e) {
+				$log->error("error! message:", $e->getMessage(), "class:", get_class($e));
+			}
+		}
+
+		$this->report(array(
+			"subject" => "restore",
+		));
 	}
 
+	/**
+	 * @param array<{"verbose": bool, "sources": array<string>}> $data
+	 */
 	public function cleanup(array $data) {
 		$this->prerun($data);
-		$log = BaseLog::getInstance();
+		$log = Log::getInstance();
 
 		foreach (Backup::getSources() as $source) {
 			$sourceID = $source->getID();
@@ -99,9 +195,13 @@ class Backuping extends Process {
 				$log->error("error! message:", $e->getMessage(), "class:", get_class($e));
 			}
 		}
+
+		$this->report(array(
+			"subject" => "cleanup",
+		));
 	}
 
-	protected function report() {
+	protected function report(?array $option) {
 		$log = BaseLog::getInstance();
 
 		$log->info("get report info");
@@ -114,7 +214,7 @@ class Backuping extends Process {
 			var_dump($messages);
 			$report = new Report();
 			$report->setSender($info["sender"]);
-			$report->setSubject($info["subject"]);
+			$report->setSubject($info["subject"] . ((isset($option["subject"]) and $option["subject"]) ? " - " . $option["subject"] : ""));
 			$report->setMessage(implode(PHP_EOL, $messages));
 			foreach ($info["receivers"] as $receiver) {
 				$report->addReceiver($receiver);
@@ -129,7 +229,7 @@ class Backuping extends Process {
 		}
 	}
 
-	private function localDirZipMaker(IO\Directory\Local $zipDir, IO\File\Local $zipFile): void {
+	private function zipDirectoryToFile(IO\Directory\Local $zipDir, IO\File\Local $zipFile): void {
 		$zip = new ZipArchive;
 		if ($zip->open($zipFile->getPath(), ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
 			foreach ($zipDir->files(true) as $file) {
@@ -141,8 +241,17 @@ class Backuping extends Process {
 		}
 	}
 
+	private function extractZipFileToDirectory(IO\File\Local $zipFile, IO\Directory\Local $zipDir): void {
+		$zip = new ZipArchive;
+		if ($zip->open($zipFile->getPath())) {
+			$zip->extractTo($zipDir->getPath());
+			$zip->close();
+		} else {
+			throw new Error("packages.backuping.processes.Backuping.error_extract_zip");
+		}
+	}
+
 	private function prerun(array $data): void {
-		$this->dryRun = $data["dry-run"] ?? false;
 		$this->verbose = $data["verbose"] ?? false;
 		if ($this->verbose) {
 			Log::setLevel("debug");
