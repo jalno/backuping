@@ -3,44 +3,81 @@ namespace packages\backuping\processes;
 
 use \ZipArchive;
 use \InvalidArgumentException;
-use packages\base\{Log as BaseLog, IO, Options, Date, Process, Response};
+use packages\base\{Cli, Exception, Log as BaseLog, IO, Options, Date, Process, Response};
 use packages\backuping\{Backup, Log, Report};
 
 class Backuping extends Process {
 
 	protected ?bool $verbose = false;
+	protected ?Backup $backup = null;
 
 	/**
-	 * @param array<{"verbose": bool}> $data
+	 * @param array<{"verbose"?: bool}> $data
 	 */
 	public function backup(array $data) {
-		$this->prerun($data);
+		$this->loadConfig($data);
 		$log = Log::getInstance();
 
 		$log->info("get backup from sources...");
-		foreach (Backup::getSources() as $source) {
-			$log->info("get backup from source: ({$source->getID()})");
-			$backupRepoForSource = new IO\Directory\TMP();
+		$sources = $this->getSources($data);
+		$destinations = $this->getDestination($data);
+
+		foreach ($sources as $source) {
+			$sourceID = $source->getID();
+			$log->info("get backup from source: ({$sourceID})");
+
+			$backupFileName = $sourceID . "-" . Date::time();
+
 			try {
-				$source->getBackupable()->backup($backupRepoForSource, $source->getOptions());
-				$log->reply("done");
+				/** @var IO\File|IO\Directory */
+				$output = $source->getType()->backup($source->getOptions());
 
-				$log->reply("make source working directory zip");
-				$zipFileDir = new IO\Directory\TMP();
-				$zipFileName = $source->getID() . "-" . Date::time() . ".zip";
-				$log->reply("file name:", $zipFileName);
-				$zipFile = $zipFileDir->file($zipFileName);
-				$this->zipDirectoryToFile($backupRepoForSource, $zipFile);
-				$log->reply("done");
-
-				$log->info("transfer file to destinations");
-				foreach (Backup::getDestinations() as $destination) {
-					$destDir = $destination->getDirectory();
-					$destFile = $destDir->file($zipFileName);
-					$destFile->copyFrom($zipFile);
+				if (!($output instanceof IO\File) and !($output instanceof IO\Directory)) {
+					$error = "return value of backup should be instance of: '" . IO\File::class . "' or '" . IO\Directory::class . "' (" . gettype($output) . ") given!";
+					$log->reply()->error($error);
+					throw new Exception($error);
 				}
 				$log->reply("done");
 
+				$log->info("check the output of backup source...");
+
+				$fileForTransfer = $output;
+				if ($output instanceof IO\Directory) {
+					$backupFileName .= "-directory";
+
+					$log->info("the output is a directory, so we should make it zip file");
+					$tmpZip = new IO\File\TMP();
+					$log->info("try zipping dir: ({$output->getPath()}) to file: ({$tmpZip->getPath()})");
+					$this->zipDirectory($output, $tmpZip);
+					$log->reply("done, size:", $tmpZip->size());
+
+					if ($output instanceof IO\Directory\TMP) {
+						$log->info("the output directory is a temp directory, so clean it to free space");
+						unset($output);
+					}
+
+					$fileForTransfer = $tmpZip;
+				}
+				$backupFileName .= ".zip";
+
+				$log->info("transfer file to destinations");
+				foreach ($destinations as $destination) {
+					$log->info("try transfer backup of source: ({$sourceID}) to destination: ({$destination->getID()})");
+					try {
+						$directory = $destination->getDirectory();
+						$destFile = $directory->file($backupFileName);
+						
+						if ($fileForTransfer->copyTo($destFile)) {
+							$log->reply("done!");
+						} else {
+							$log->reply("faild! copyTo return false!");
+						}
+					} catch (\Exception $e) {
+						$log->reply()->error("failed! message: '" . $e->getMessage() . "' class:" . get_class($e));
+					}
+					$log->info("remove ziped file ({$fileForTransfer->getPath()}) to free space");
+				}
+				unset($fileForTransfer);
 			} catch (\Exception $e) {
 				$log->error("error! message:", $e->getMessage(), "class:", get_class($e));
 			}
@@ -52,87 +89,112 @@ class Backuping extends Process {
 	}
 
 	/**
-	 * @param array<{"verbose": bool, "sources": array<string>, "restore-backup-after": int}> $data
+	 * @param array<{"verbose"?: bool, "sources"?: array<string>, "destination"?: array<string>, "backup-name"?: string, "restore-latest-backup?": bool}> $data
 	 */
 	public function restore(array $data) {
-		$this->prerun($data);
+		$this->loadConfig($data);
 		$log = Log::getInstance();
 
-		$currentSourceIDs = array();
-		foreach (Backup::getSources() as $source) {
-			$currentSourceIDs[] = $source->getID();
-		}
+		$sources = $this->getSources($data);
+		$destinations = $this->getDestination($data);
 
-		$selectedSourceIDs = $data["sources"] ?? null;
-
-		if ($selectedSourceIDs) {
-			$selectedSourceIDs = is_array($selectedSourceIDs) ? $selectedSourceIDs : array($selectedSourceIDs);
-			foreach ($selectedSourceIDs as $selectedSourceID) {
-				if (!is_string($selectedSourceID)) {
-					$log->error("the given source id ({$selectedSourceID}) is not valid!");
-					throw new InvalidArgumentException("the given source id ({$selectedSourceID}) is not valid!");
-				}
-				if (!in_array($selectedSourceID, $currentSourceIDs)) {
-					$log->error("the given source id ({$selectedSourceID}) is not exists!");
-					throw new InvalidArgumentException("the given source id ({$selectedSourceID}) is not exists!");
-				}
+		$backupNameToRestore = $data["backup-name"] ?? null;
+		if ($backupNameToRestore) {
+			if (!is_string($backupNameToRestore)) {
+				$log->error("the given 'backup-name' is not valid, it should be string!");
+				throw new InvalidArgumentException("the given 'backup-name' is not valid, it should be string!");
 			}
-			$log->info("try restore backup of sources:", $selectedSourceIDs);
-		} else {
-			$log->info("restore backup of all sources");
+			$log->info("got 'backup-name': ({$backupNameToRestore}), so find backups by this name");
 		}
 
-		$findBackupAfter = $data["restore-backup-after"] ?? null;
-		if (!$findBackupAfter) {
-			$log->error("you should pass 'restore-backup-after' (int) arg to find the last backup after this time");
-			throw new InvalidArgumentException("you should pass 'restore-backup-after' (int) arg to find the last backup after this time");
-		}
-		if (!is_numeric($findBackupAfter) or $findBackupAfter < 0) {
-			$log->error("the 'find-backup-after' is not numeric value or not greater than zero! value: {$findBackupAfter}");
-			throw new InvalidArgumentException("the 'restore-backup-after' is not numeric value or not greater than zero! value: {$findBackupAfter}");
+		$latest = $data["restore-latest-backup"] ?? null;
+		if ($backupNameToRestore and array_key_exists("restore-latest-backup", $data)) {
+			$log->error("you can not pass 'backup-name' and 'restore-latest-backup' options at same time!");
 		}
 
-
-		$log->info("find the best backup of each source to restore");
-		foreach (Backup::getSources() as $source) {
+		$log->info("find the backups of each source from destinations to restore");
+		foreach ($sources as $source) {
 			$sourceID = $source->getID();
 			$log->info("get backups of source: ({$sourceID}) from destinations");
 			try {
 
 				$findedBackups = array();
 				$log->info("check each destinations");
-				foreach (Backup::getDestinations() as $destination) {
+				foreach ($destinations as $destination) {
+					$destinationID = $destination->getID();
 					$directory = $destination->getDirectory();
 					foreach ($directory->files(false) as $file) {
 						if (
 							substr($file->basename, 0, strlen($sourceID) + 1) == $sourceID . '-' and
-							preg_match("/\\-(\d+)\\.zip$/", $file->basename, $matches)
+							preg_match("/\-(\d+)(-directory)?\.zip$/", $file->basename, $matches)
 						) {
-							if ($matches[1] >= $findBackupAfter) {
-								$findedBackups[$matches[1]] = $file;
+							$log->info("find backup for source: ({$sourceID}) on destination: ({$destinationID}), backup: ({$file->getPath()})");
+							if ($backupNameToRestore and $file->basename != $backupNameToRestore) {
+								$log->reply()->warn("the backup name: ({$file->basename}) is not equal to requested name: ({$backupNameToRestore}), so skip...");
+								continue;
 							}
+							$log->reply("add to finded backups");
+							$findedBackups[] = array(
+								"file" => $file,
+								"createAt" => $matches[1],
+								"destinationID" => $destinationID,
+								"isDirectory" => $matches[2] ?? false,
+							);
 						}
 					}
 				}
-				if ($findedBackups) {
-					$log->info("find (" . count($findedBackups) . ") backup for source: ({$sourceID}), find last backup");
-					$lastKey = max(array_keys($findedBackups));
-					$backupFile = $findedBackups[$lastKey];
-
-					$log->info("try restore backup: (" . $backupFile->getPath() . ") to source: ({$sourceID})");
-
-					$zipFileDir = new IO\Directory\TMP();
-					$log->info("try extract file to:", $zipFileDir->getPath());
-					$this->extractZipFileToDirectory($backupFile, $zipFileDir);
-					$log->reply("done");
-
-					$log->info("call source ({$sourceID}) restore ...");
-					$backupable = $source->getBackupable();
-					$backupable->restore($zipFileDir, $source->getOptions());
-					$log->reply("done");
-				} else {
-					$log->warn("can not find any backup for source: ({$sourceID}) after: ({$findBackupAfter})");
+				if (empty($findedBackups)) {
+					$log->warn("can not find any backup for source: ({$sourceID})");
+					continue;
 				}
+				$log->info("find (" . count($findedBackups) . ") backup for source: ({$sourceID})");
+
+				$backupFile = null;
+
+				if ($latest) {
+					$log->info("you try to restore the latest backup! find it...");
+					$latestCreateAt = max(array_column($findedBackups, "createAt"));
+					$log->info("the last backup createAt is: ({$latestCreateAt})");
+					foreach ($findedBackups as $findedBackup) {
+						if ($findedBackup["createAt"] == $latestCreateAt) {
+							$backupFile = $findedBackup;
+							$log->info("the latest backup is on destination: " . $backupFile["destinationID"]);
+						}
+					}
+				} elseif ($backupNameToRestore) {
+					$log->info("you try to restore backup with name: ($backupNameToRestore)");
+				}
+				if (count($findedBackups) == 1) {
+					$backupFile = $findedBackups[0];
+				} elseif (count($findedBackups) > 1) {
+					$log->reply("more that on backup is found! you should select one of theme!");
+
+					$x = 1;
+					$answers = array();
+					foreach ($findedBackups as $findedBackup) {
+						$answers[$x] = "(" . $findedBackup["destinationID"] . "), basename: (" . $findedBackup["file"]->basename . "), date: (" . Date::format("Q QTS", $findedBackup["createAt"]) . ")";
+						$x++;
+					}
+					$response = $this->askQuestion("What backup you want to restore?", $answers, true);
+					$backupFile = $findedBackups[$response - 1];
+				}
+
+				$log->info("try restore backup: (" . $backupFile["file"]->getPath() . ") from destination: (" . $backupFile["destinationID"] . ") to source: ({$sourceID})");
+
+				$item = $backupFile["file"];
+				if ($backupFile["isDirectory"]) {
+					$log->info("backup is a zipped directory, so we should extract it!");
+
+					$directory = new IO\Directory\TMP();
+					$log->info("try extract file to:", $directory->getPath());
+					$this->extractZipFile($backupFile["file"], $directory);
+					$log->reply("done");
+					$item = $directory;
+				}
+				$log->info("call source ({$sourceID}) restore ...");
+				$type = $source->getType();
+				$type->restore($item, $source->getOptions());
+				$log->reply("done");
 
 			} catch (\Exception $e) {
 				$log->error("error! message:", $e->getMessage(), "class:", get_class($e));
@@ -145,21 +207,28 @@ class Backuping extends Process {
 	}
 
 	/**
-	 * @param array<{"verbose": bool, "sources": array<string>}> $data
+	 * @param array<{"verbose"?: bool, "sources"?: array<string>, "destinations"?: array<string>}> $data
 	 */
 	public function cleanup(array $data) {
-		$this->prerun($data);
+		$this->loadConfig($data);
 		$log = Log::getInstance();
 
-		foreach (Backup::getSources() as $source) {
+		$sources = $this->getSources($data);
+		$destinations = $this->getDestination($data);
+
+		foreach ($sources as $source) {
 			$sourceID = $source->getID();
 			$log->info("cleanup old backups of that related to source: ({$sourceID})");
 			try {
-				foreach (Backup::getDestinations() as $destination) {
+				foreach ($destinations as $destination) {
+					$destinationID = $destination->getID();
+					$log->info("destination ID: ({$destinationID})");
 					$lifetime = $destination->getLifeTime();
 					if ($lifetime === null) {
 						$log->warn("lifetime is null, so skip this destination...");
+						continue;
 					}
+					$log->info("the lifetime of destination ($destinationID) is ({$lifetime}) day");
 
 					$shouldBeDeleted = array();
 
@@ -167,7 +236,7 @@ class Backuping extends Process {
 					foreach ($directory->files(false) as $file) {
 						if (
 							substr($file->basename, 0, strlen($sourceID) + 1) == $sourceID . '-' and
-							preg_match("/\\-(\d+)\\.zip$/", $file->basename, $matches)
+							preg_match("/\-(\d+)(-directory)?\.zip$/", $file->basename, $matches)
 						) {
 							if (Date::time() - $matches[1] > $lifetime * 86400) {
 								$shouldBeDeleted[] = $file;
@@ -175,18 +244,20 @@ class Backuping extends Process {
 						}
 					}
 
-					if ($shouldBeDeleted) {
-						$log->info("find: (" . count($shouldBeDeleted) . ") to delete, try delete");
-						foreach ($shouldBeDeleted as $rfile) {
-							$log->info("delete file:", $rfile->getPath());
-							if ($rfile->delete()) {
-								$log->reply("done");
-							} else {
-								$log->reply("failed");
-							}
-						}
-					} else {
+					if (empty($shouldBeDeleted)) {
 						$log->info("this destination has no file to cleanup");
+						continue;
+					}
+
+					$log->info("find: (" . count($shouldBeDeleted) . ") to delete, try delete");
+					foreach ($shouldBeDeleted as $file) {
+						$log->info("delete file:", $file->getPath());
+						try {
+							$file->delete();
+							$log->reply("done");
+						} catch (IO\Exception $e) {
+							$log->reply("failed");
+						}
 					}
 				}
 				$log->reply("done");
@@ -202,16 +273,16 @@ class Backuping extends Process {
 	}
 
 	protected function report(?array $option) {
+		$this->loadConfig($option);
 		$log = BaseLog::getInstance();
 
 		$log->info("get report info");
-		$info = Backup::getReportInfo();
+		$info = $this->backup->getReportInfo();
 		$log->reply("done", $info);
 
 		if ($info and $info["sender"] and $info["receivers"]) {
 			$log->info("prepare send email...");
 			$messages = Log::getMessages();
-			var_dump($messages);
 			$report = new Report();
 			$report->setSender($info["sender"]);
 			$report->setSubject($info["subject"] . ((isset($option["subject"]) and $option["subject"]) ? " - " . $option["subject"] : ""));
@@ -229,37 +300,166 @@ class Backuping extends Process {
 		}
 	}
 
-	private function zipDirectoryToFile(IO\Directory\Local $zipDir, IO\File\Local $zipFile): void {
+	protected function zipDirectory(IO\Directory\Local $zipDir, IO\File\Local $zipFile): void {
 		$zip = new ZipArchive;
-		if ($zip->open($zipFile->getPath(), ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
-			foreach ($zipDir->files(true) as $file) {
-				$zip->addFile($file->getPath(), $zipDir->getRelativePath($file));
+		if (!$zip->open($zipFile->getPath(), ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
+			throw new Exception("packages.backuping.processes.Backuping.error_open_zip_archive");
+		}
+		foreach ($zipDir->files(true) as $file) {
+			$relativePath = $zipDir->getRelativePath($file);
+			$zip->addFile($file->getPath(), $relativePath);
+
+			/** prevent compress already compressed files! */
+			$ext = $file->getExtension();
+			if (in_array($ext, array("zip", "gz"))) {
+				$zip->setCompressionName($relativePath, ZipArchive::CM_STORE);
 			}
-			$zip->close();
-		} else {
-			throw new Error("packages.backuping.processes.Backuping.error_zip_archive");
+		}
+		if (!$zip->close()) {
+			throw new Exception("packages.backuping.processes.Backuping.error_close_zip_archive");
 		}
 	}
 
-	private function extractZipFileToDirectory(IO\File\Local $zipFile, IO\Directory\Local $zipDir): void {
+	protected function extractZipFile(IO\File $zipFile, IO\Directory\Local $zipDir): void {
+		$log = Log::getInstance();
+		$log->info("check file is on local?");
+
+		if (!($zipFile instanceof IO\File\Local)) {
+			$log->info("is not on local!, copy it on local");
+			$tmpFile = new IO\File\TMP();
+			if ($zipFile->copyTo($tmpFile)) {
+				$log->reply("done, local file: " . $tmpFile->getPath());
+				$zipFile = $tmpFile;
+			} else {
+				$log->reply()->error("can not copy file: (" . get_class($zipFile) . "):{$zipFile->getPath()}) to local!");
+				throw new Exception("can not copy file: (" . get_class($zipFile) . "):{$zipFile->getPath()}) to local!");
+			}
+		} else {
+			$log->reply("is on local");
+		}
+
 		$zip = new ZipArchive;
-		if ($zip->open($zipFile->getPath())) {
-			$zip->extractTo($zipDir->getPath());
-			$zip->close();
-		} else {
-			throw new Error("packages.backuping.processes.Backuping.error_extract_zip");
+		if (!$zip->open($zipFile->getPath())) {
+			throw new Exception("packages.backuping.processes.Backuping.error_extract_zip");
+		}
+		$zip->extractTo($zipDir->getPath());
+		if ($zipFile instanceof IO\File\TMP) {
+			unset($zipFile);
+		}
+		if ($zip->close()) {
+			throw new Exception("packages.backuping.processes.Backuping.error_close_zip_archive");
 		}
 	}
 
-	private function prerun(array $data): void {
+	protected function getSources(array $data): array {
+		$this->loadConfig($data);
+		$log = Log::getInstance();
+
+		$allSources = $this->backup->getSources();
+
+		$selectedSourceIDs = $data["sources"] ?? null;
+		if (!$selectedSourceIDs) {
+			$log->info("no sources is given, so use all sources");
+			return $allSources;
+		}
+
+		if (!is_array($selectedSourceIDs)) {
+			$selectedSourceIDs = array($selectedSourceIDs);
+		}
+
+		$sources = array();
+		foreach ($selectedSourceIDs as $sourceID) {
+			if (!is_string($sourceID)) {
+				$log->error("the given source id ({$sourceID}) is not valid!");
+				throw new InvalidArgumentException("the given source id ({$sourceID}) is not valid!");
+			}
+			foreach ($allSources as $source) {
+				if ($source->getID() == $sourceID) {
+					$sources[] = $source;
+					continue;
+				}
+			}
+			$log->error("the given source id ({$sourceID}) is not exists!");
+			throw new InvalidArgumentException("the given source id ({$sourceID}) is not exists!");
+		}
+		$log->info("selected source ids:", $selectedSourceIDs);
+		return $sources;
+	}
+
+	protected function getDestination(array $data): array {
+		$this->loadConfig($data);
+		$log = Log::getInstance();
+		
+		$allDestionations = $this->backup->getDestinations();
+
+		$selectedDestinationIDs = $data["destinations"] ?? null;
+		if (!$selectedDestinationIDs) {
+			$log->info("no destinations is given, so use all destinations");
+			return $allDestionations;
+		}
+
+		if (!is_array($selectedDestinationIDs)) {
+			$selectedDestinationIDs = array($selectedDestinationIDs);
+		}
+
+		$destionations = array();
+		foreach ($selectedDestinationIDs as $destinationID) {
+			if (!is_string($destinationID)) {
+				$log->error("the given destination id ({$destinationID}) is not valid!");
+				throw new InvalidArgumentException("the given destination id ({$destinationID}) is not valid!");
+			}
+			foreach ($allDestionations as $destionation) {
+				if ($destionation->getID() == $destinationID) {
+					$destionations[] = $destionation;
+					continue;
+				}
+			}
+			$log->error("the given destination id ({$destinationID}) is not exists!");
+			throw new InvalidArgumentException("the given destination id ({$destinationID}) is not exists!");
+		}
+		$log->info("selected destination ids:", $selectedDestinationIDs);
+		return $destionations;
+	}
+
+	protected function loadConfig(array $data = array()): void {
 		$this->verbose = $data["verbose"] ?? false;
 		if ($this->verbose) {
 			Log::setLevel("debug");
 			BaseLog::setLevel("debug");
 		}
-		$log = BaseLog::getInstance();
-		$log->info("load config");
-		Backup::loadConfig();
-		$log->reply("done");
+		if ($this->backup === null) {
+			$log = BaseLog::getInstance();
+			$log->info("load config");
+			$this->backup = new Backup();
+			$log->reply("done");
+		}
+	}
+
+	private function askQuestion(string $question, ?array $answers = null, bool $showAnswersOnNewLine = false): string {
+		do {
+			$helpToAsnwer = "";
+			if ($answers) {
+				foreach ($answers as $shortcut => $answer) {
+					if ($helpToAsnwer) {
+						$helpToAsnwer .= $showAnswersOnNewLine ? "\n" : ", ";
+					}
+					$shutcut = strtoupper($shortcut);
+					$helpToAsnwer .= ($answer != $shutcut ? $shortcut . " = " : "") . $answer;
+				}
+			}
+			if ($helpToAsnwer) {
+				$helpToAsnwer = $showAnswersOnNewLine ? "\n$helpToAsnwer\n" : "[{$helpToAsnwer}]";
+			}
+			$response = Cli::readLine($question . ($helpToAsnwer ? $helpToAsnwer : "") . ": ");
+			if ($answers) {
+				$response = strtoupper($response);
+				$shutcuts = array_map('strtoupper', array_keys($answers));
+				if (in_array($response, $shutcuts)) {
+					return $response;
+				}
+			} elseif ($response) {
+				return $response;
+			}
+		} while(true);
 	}
 }
