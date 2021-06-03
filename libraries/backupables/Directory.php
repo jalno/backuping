@@ -69,7 +69,7 @@ class Directory implements IBackupable {
 			$log->info("directory is callable, so call it");
 			$directory = $directory($options);
 		}
-		if (!($directory instanceof Directory)) {
+		if (!($directory instanceof IO\Directory)) {
 			$log->error("the given 'directory' is not valid! it should be instance of:" . IO\Directory::class);
 			throw new InvalidArgumentException("the given 'directory' is not valid! it should be instance of:" . IO\Directory::class);
 		}

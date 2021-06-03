@@ -175,7 +175,11 @@ class Backuping extends Process {
 						$answers[$x] = "(" . $findedBackup["destinationID"] . "), basename: (" . $findedBackup["file"]->basename . "), date: (" . Date::format("Q QTS", $findedBackup["createAt"]) . ")";
 						$x++;
 					}
+					$answers["skip"] = "skip...";
 					$response = $this->askQuestion("What backup you want to restore?", $answers, true);
+					if (strtolower($response) == "skip") {
+						continue;
+					}
 					$backupFile = $findedBackups[$response - 1];
 				}
 
@@ -346,7 +350,7 @@ class Backuping extends Process {
 		if ($zipFile instanceof IO\File\TMP) {
 			unset($zipFile);
 		}
-		if ($zip->close()) {
+		if (!$zip->close()) {
 			throw new Exception("packages.backuping.processes.Backuping.error_close_zip_archive");
 		}
 	}

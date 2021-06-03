@@ -2,7 +2,7 @@
 namespace packages\backuping\backupables;
 
 use \InvalidArgumentException;
-use packages\base\{Date, view\Error, IO, DB\MysqliDb};
+use packages\base\{Date, Exception, IO, DB\MysqliDb};
 use packages\backuping\{IBackupable, Log};
 
 class MySQL implements IBackupable {
@@ -86,6 +86,7 @@ class MySQL implements IBackupable {
 				$command = $baseCommand;
 				$command .= " {$database} " . ($ignoredTables ? implode(" ", $ignoredTables) : "");
 				$command .= ($hasGzip ? " | gzip -c" : "") . " > " . $file->getPath();
+				$command .= " 2>&1";
 
 				$log->info("run command:", $command);
 
@@ -98,7 +99,7 @@ class MySQL implements IBackupable {
 					$log->info("done, file size:", $file->size());
 				} else {
 					$log->error("can not get backup!");
-					throw new Error("packages.backuping.backupable.can_not_get_backup");
+					throw new Exception("packages.backuping.backupable.can_not_get_backup");
 				}
 				break;
 			}
@@ -114,6 +115,7 @@ class MySQL implements IBackupable {
 			$command .= " --all-databases ";
 			$command .= ($ignoredDatabases ? implode(" ", $ignoredDatabases) : "");
 			$command .= ($hasGzip ? " | gzip -c" : "") . " > " . $file->getPath();
+			$command .= " 2>&1";
 
 			$log->info("run command:", $command);
 
@@ -121,18 +123,21 @@ class MySQL implements IBackupable {
 			$status = null;
 			exec($command, $output, $status);
 			$log->reply("output:", $output, "status code:", $status);
+			if ($status != 0) {
+				throw new Exception(implode("\n", $output));
+			}
 
 			if ($file->exists()) {
 				$log->reply("done, file size:", $file->size());
 			} else {
 				$log->reply()->error("can not get backup!");
-				throw new Error("packages.backuping.backupable.can_not_get_backup");
+				throw new Exception("packages.backuping.backupable.can_not_get_backup");
 			}
 		}
 		return $repo;
 	}
 
-	public function restore($backup, array $options = array()): void {
+	public function restore($repo, array $options = array()): void {
 		$this->getMysqliDB($options);
 		$log = Log::getInstance();
 		$log->info("start mysql restore");
@@ -149,11 +154,16 @@ class MySQL implements IBackupable {
 				if ($ext == "gz") {
 					$log->reply("is gz file! extract it");
 					$command = "gzip -d " . $file->getPath();
+					$command .= " 2>&1";
+
 					$log->info("run command:", $command);
 					$output = null;
 					$status = null;
 					exec($command, $output, $status);
 					$log->reply("output:", $output, "status code:", $status);
+					if ($status != 0) {
+						throw new Exception(implode("\n", $output));
+					}
 				}
 			}
 		}
@@ -177,13 +187,17 @@ class MySQL implements IBackupable {
 				$command .= " --port=" . escapeshellcmd($this->dbInfo["port"]);
 				$command .= " --user=" . escapeshellcmd($this->dbInfo["username"]);
 				$command .= " --password=" . escapeshellcmd($this->dbInfo["password"]);
-				$command .= ($dbName ? $dbName : "") . " < " . $file->getPath();
+				$command .= " " . ($dbName ? $dbName : "") . " < " . $file->getPath();
+				$command .= " 2>&1";
 
 				$log->info("run command:", $command);
 				$output = null;
 				$status = null;
 				exec($command, $output, $status);
 				$log->reply("output:", $output, "status code:", $status);
+				if ($status != 0) {
+					throw new Exception(implode("\n", $output));
+				}
 			}
 		}
 	}
