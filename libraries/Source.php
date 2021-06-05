@@ -34,12 +34,14 @@ class Source {
 		if (is_callable($type)) {
 			$log->info("type is callable, so call it");
 			$type = $type($options);
+			$log->reply("done", $type);
 		}
 		if (!($type instanceof IBackupable)) {
 			$log->error("the 'type' index should be instance of '" . IBackupable::class . "' or callable that return this type, (" . gettype($type) . ") given!");
 			throw new InvalidArgumentException("the 'type' index should be instance of '" . IBackupable::class . "' or callable that return this type, (" . gettype($type) . ") given!");
 		}
 
+		$log->info("source object created! id:", $id);
 		return new self($id, $type, $options);
 	}
 
@@ -65,7 +67,7 @@ class Source {
 		return $this->options;
 	}
 
-	public function getOption(string $name): ?mixed {
+	public function getOption(string $name) {
 		return $this->options[$name] ?? null;
 	}
 

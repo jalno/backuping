@@ -69,27 +69,28 @@ class Backup {
 			if (!$report) {
 				$log->warn("the report is empty, it seems no need to report");
 				trigger_error("the report is empty, it seems no need to report");
-			}
-			$subject = $report["subject"] ?? "Backuping Report";
-			if (!is_string($subject)) {
-				$log->error("report subject should be string");
-				throw new InvalidArgumentException("report subject should be string");
-			}
-			$this->config["report"]["subject"] = $subject;
+			} else {
+				$subject = $report["subject"] ?? "Backuping Report";
+				if (!is_string($subject)) {
+					$log->error("report subject should be string");
+					throw new InvalidArgumentException("report subject should be string");
+				}
+				$this->config["report"]["subject"] = $subject;
 
-			$sender = $report["sender"] ?? null;
-			if (!$sender or !is_array($sender)) {
-				$log->error("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
-				throw new InvalidArgumentException("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
-			}
-			$this->config["report"]["sender"] = $sender;
+				$sender = $report["sender"] ?? null;
+				if (!$sender or !is_array($sender)) {
+					$log->error("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
+					throw new InvalidArgumentException("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
+				}
+				$this->config["report"]["sender"] = $sender;
 
-			$receivers = $report["receivers"] ?? [];
-			if (!$receivers) {
-				$log->error("you should add receivers to report is sendable");
-				throw new InvalidArgumentException("you should add receivers to report is sendable");
+				$receivers = $report["receivers"] ?? [];
+				if (!$receivers) {
+					$log->error("you should add receivers to report is sendable");
+					throw new InvalidArgumentException("you should add receivers to report is sendable");
+				}
+				$this->config["report"]["receivers"] = $receivers;
 			}
-			$this->config["report"]["receivers"] = $receivers;
 
 			$this->configLoaded = true;
 		} else {
