@@ -8,7 +8,7 @@ use packages\backuping\{Backup, Log, Report};
 
 class Backuping extends Process {
 
-	protected ?bool $verbose = false;
+	protected bool $verbose = false;
 	protected ?Backup $backup = null;
 
 	/**
@@ -20,7 +20,7 @@ class Backuping extends Process {
 
 		$log->info("get backup from sources...");
 		$sources = $this->getSources($data);
-		$destinations = $this->getDestination($data);
+		$destinations = $this->getDestinations($data);
 
 		foreach ($sources as $source) {
 			$sourceID = $source->getID();
@@ -49,7 +49,7 @@ class Backuping extends Process {
 					$tmpZip = new IO\File\TMP();
 					$log->info("try zipping dir: ({$output->getPath()}) to file: ({$tmpZip->getPath()})");
 					$this->zipDirectory($output, $tmpZip);
-					$log->reply("done, size:", $tmpZip->size());
+					$log->reply("done, size:", $this->getHumanReadableSize($tmpZip->size()));
 
 					if ($output instanceof IO\Directory\TMP) {
 						$log->info("the output directory is a temp directory, so clean it to free space");
@@ -58,6 +58,7 @@ class Backuping extends Process {
 
 					$fileForTransfer = $tmpZip;
 				}
+				$log->info("file for transfer size:", $this->getHumanReadableSize($fileForTransfer->size()));
 				$backupFileName .= ".zip";
 
 				$log->info("transfer file to destinations");
@@ -65,6 +66,9 @@ class Backuping extends Process {
 					$log->info("try transfer backup of source: ({$sourceID}) to destination: ({$destination->getID()})");
 					try {
 						$directory = $destination->getDirectory();
+						if (!$directory->exists()) {
+							$directory->make(true);
+						}
 						$destFile = $directory->file($backupFileName);
 						
 						if ($fileForTransfer->copyTo($destFile)) {
@@ -96,7 +100,7 @@ class Backuping extends Process {
 		$log = Log::getInstance();
 
 		$sources = $this->getSources($data);
-		$destinations = $this->getDestination($data);
+		$destinations = $this->getDestinations($data);
 
 		$backupNameToRestore = $data["backup-name"] ?? null;
 		if ($backupNameToRestore) {
@@ -218,7 +222,7 @@ class Backuping extends Process {
 		$log = Log::getInstance();
 
 		$sources = $this->getSources($data);
-		$destinations = $this->getDestination($data);
+		$destinations = $this->getDestinations($data);
 
 		foreach ($sources as $source) {
 			$sourceID = $source->getID();
@@ -305,11 +309,17 @@ class Backuping extends Process {
 	}
 
 	protected function zipDirectory(IO\Directory\Local $zipDir, IO\File\Local $zipFile): void {
+		$files = $zipDir->files(true);
+		if (empty($files)) {
+			// this is empty zip file!
+			$zipFile->write(base64_decode("UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=="));
+			return;
+		}
 		$zip = new ZipArchive;
 		if (!$zip->open($zipFile->getPath(), ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
 			throw new Exception("packages.backuping.processes.Backuping.error_open_zip_archive");
 		}
-		foreach ($zipDir->files(true) as $file) {
+		foreach ($files as $file) {
 			$relativePath = $zipDir->getRelativePath($file);
 			$zip->addFile($file->getPath(), $relativePath);
 
@@ -390,7 +400,7 @@ class Backuping extends Process {
 		return $sources;
 	}
 
-	protected function getDestination(array $data): array {
+	protected function getDestinations(array $data): array {
 		$this->loadConfig($data);
 		$log = Log::getInstance();
 		
@@ -435,10 +445,15 @@ class Backuping extends Process {
 			$log = BaseLog::getInstance();
 			$log->info("load config");
 			$this->backup = new Backup();
+			$this->backup->loadConfig();
 			$log->reply("done");
 		}
 	}
-
+	protected function getHumanReadableSize(int $size): string {
+		$base = log($size, 1024);
+		$suffixes = array('B', 'KB', 'MB', 'GB', 'TB');
+		return round(pow(1024, $base - floor($base)), 2) .' '. $suffixes[floor($base)];
+	}
 	private function askQuestion(string $question, ?array $answers = null, bool $showAnswersOnNewLine = false): string {
 		do {
 			$helpToAsnwer = "";
