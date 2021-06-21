@@ -40,10 +40,14 @@ class Directory implements IBackupable {
 
 		$log->info("check directory...");
 		$result = new IO\Directory\TMP();
-		foreach ($directory->items(false) as $item) {
+		if (!$result->exists()) {
+			$result->make(true);
+		}
+
+		foreach ($directory->items(true) as $item) {
 			$log->debug("item:", $item->basename);
 			if ($this->isMatch($excludes, $item->basename)) {
-				$log->reply("skip, maches in exclude!");
+				$log->reply("skip, matches in exclude!");
 				continue;
 			}
 			$relativePath = $directory->getRelativePath($item);

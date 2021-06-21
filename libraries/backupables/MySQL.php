@@ -20,34 +20,36 @@ class MySQL implements IBackupable {
 		$log = Log::getInstance();
 		$log->info("start mysql backup");
 
-		$excludes = $options["exclude"] ?? [];
-		if (!is_array($excludes)) {
-			$log->error("the 'exclude' option should be array! (" . gettype($excludes) . ") given!");
-			throw new \InvalidArgumentException("the 'exclude' option should be array! (" . gettype($excludes) . ") given!");
+		$excludes = [];
+		$excludeOption = $options["exclude"] ?? [];
+		if (!is_array($excludeOption)) {
+			$log->error("the 'exclude' option should be array! (" . gettype($excludeOption) . ") given!");
+			throw new \InvalidArgumentException("the 'exclude' option should be array! (" . gettype($excludeOption) . ") given!");
+		} elseif ($excludeOption) {
+			$excludes = $this->getExcludes($excludeOption);
 		}
 
-		$excludeDatabases = array();
-		foreach ($excludes as $key => $databaseNameOrTables) {
-			if (is_array($databaseNameOrTables)) {
-				foreach ($databaseNameOrTables as $tkey => $tableName) {
-					if (!is_string($tableName)) {
-						$log->error("the item: ({$tkey}) in tables of database: ({$key}) 'exclude' array is not supported! only string or array is supported, (" . gettype($tableName) . ") given!", $tableName);
-						throw new \InvalidArgumentException("the item: ({$tkey}) in tables of database: ({$key}) 'exclude' array is not supported! only string or array is supported, (" . gettype($tableName) . ") given!");
-					}
-				}
-			} elseif (is_string($databaseNameOrTables)) {
-				$excludeDatabases[] = $databaseNameOrTables;
-			} else {
-				$log->error("the item: ({$key}) in 'exclude' array is not supported! only string or array is supported, (" . gettype($databaseNameOrTables) . ") given!");
-				throw new \InvalidArgumentException("the item: ({$key}) in 'exclude' array is not supported! only string or array is supported, (" . gettype($databaseNameOrTables) . ") given!");
-			}
+		$includes = [];
+		$includeOption = $options["include"] ?? [];
+		if (!is_array($includeOption)) {
+			$log->error("the 'include' option should be array! (" . gettype($includeOption) . ") given!");
+			throw new \InvalidArgumentException("the 'include' option should be array! (" . gettype($includeOption) . ") given!");
+		} elseif ($includeOption) {
+			$includes = $this->getIncludes($includeOption);
+		}
+
+		$seprate = boolval($options["seprate"]) ?? true;
+
+		$shouldUseGzip = boolval($options["gzip"]) ?? false;
+
+		$useGzip = false;
+		if ($shouldUseGzip) {
+			$log->info("check has gzip?");
+			$useGzip = $this->ensureCommand("gzip");
+			$log->reply("done:", $useGzip);
 		}
 
 		$connection = $this->getMysqliDB($options);
-
-		$log->info("check has gzip?");
-		$hasGzip = $this->ensureCommand("gzip");
-		$log->reply("done:", $hasGzip);
 
 		$time = Date::time();
 
@@ -57,35 +59,63 @@ class MySQL implements IBackupable {
 		$baseCommand .= " --user=" . escapeshellcmd($this->dbInfo["username"]);
 		$baseCommand .= " --password=" . escapeshellcmd($this->dbInfo["password"]);
 
-		$seprate = $options["seprate"] ?? true;
-
-		$backup = null;
-
 		$repo = new IO\Directory\TMP();
-		if ($seprate) {
+
+		if ($includes) {
+			foreach ($includes as $dbName => $tables) {
+				$log->info("get backup of database: {$dbName}");
+				$file = $repo->file("{$dbName}-{$time}.sql" . ($useGzip ? ".gz" : ""));
+
+				$implodeTables = implode(" ", $tables);
+				$command = $baseCommand;
+				$command .= " {$dbName}". ($implodeTables ? " {$implodeTables}" : "");
+				$command .= ($useGzip ? " | gzip -c" : "") . " > " . $file->getPath();
+				$command .= " 2>&1";
+
+				$log->info("run command:", $command);
+				$output = null;
+				$status = null;
+				exec($command, $output, $status);
+				$log->reply("output:", $output, "status code:", $status);
+
+				if ($status != 0) {
+					throw new Exception(implode("\n", $output));
+				}
+
+				if ($file->exists()) {
+					$log->info("done, file size:", $file->size());
+				} else {
+					$log->error("can not get backup!");
+					throw new Exception("packages.backuping.backupable.can_not_get_backup");
+				}
+			}
+		} elseif ($seprate) {
 			$log->info("get databases...");
 			$databases = $this->databases();
 			$log->reply("done, count:" . count($databases), $databases);
-			
-			if ($excludeDatabases) {
-				$log->info("exclude:", $excludeDatabases);
-				$databases = array_diff($databases, $excludeDatabases);
-				$log->reply("done, count: " . count($databases));
+
+			if ($excludes) {
+				$log->info("exclude:", $excludes);
 			}
 
-			
 			foreach ($databases as $database) {
 				$log->info("get backup of database: {$database}");
-				$file = $repo->file("{$database}-{$time}.sql.gz");
+				$file = $repo->file("{$database}-{$time}.sql" . ($useGzip ? ".gz" : ""));
+
+				if (isset($excludes[$database]) and empty($excludes[$database])) {
+					$log->warn("skip database: '{$database}' ...");
+					continue;
+				}
 
 				$ignoredTables = array_map(
 					fn(string $table) => "--ignore-table={$database}." . $table,
 					$excludes[$database] ?? []
 				);
+				$implodeTables = implode(" ", $ignoredTables);
 
 				$command = $baseCommand;
-				$command .= " {$database} " . ($ignoredTables ? implode(" ", $ignoredTables) : "");
-				$command .= ($hasGzip ? " | gzip -c" : "") . " > " . $file->getPath();
+				$command .= " {$database}" . ($implodeTables ? " {$implodeTables}" : "");
+				$command .= ($useGzip ? " | gzip -c" : "") . " > " . $file->getPath();
 				$command .= " 2>&1";
 
 				$log->info("run command:", $command);
@@ -95,26 +125,37 @@ class MySQL implements IBackupable {
 				exec($command, $output, $status);
 				$log->reply("output:", $output, "status code:", $status);
 
+				if ($status != 0) {
+					throw new Exception(implode("\n", $output));
+				}
+
 				if ($file->exists()) {
 					$log->info("done, file size:", $file->size());
 				} else {
 					$log->error("can not get backup!");
 					throw new Exception("packages.backuping.backupable.can_not_get_backup");
 				}
-				break;
 			}
 		} else {
-			$file = $repo->file("-{$time}.sql.gz");
+			$file = $repo->file("-{$time}.sql" . ($useGzip ? ".gz" : ""));
 
-			$ignoredDatabases = array_map(
-				fn($dbName) => "--ignore-database=" . $dbName,
-				$excludeDatabases
-			);
+			$ignoreTables = [];
+			$ignoredDatabases = [];
+			foreach ($excludes as $dbName => $tablesArray) {
+				if (empty($tablesArray)) {
+					$ignoredDatabases[] = "--ignore-database={$dbName}";
+				} else {
+					foreach ($tablesArray as $table) {
+						$ignoreTables[] = "--ignore-table={$dbName}.{$table}";
+					}
+				}
+			}
 
 			$command = $baseCommand;
-			$command .= " --all-databases ";
-			$command .= ($ignoredDatabases ? implode(" ", $ignoredDatabases) : "");
-			$command .= ($hasGzip ? " | gzip -c" : "") . " > " . $file->getPath();
+			$command .= " --all-databases";
+			$command .= $ignoredDatabases ? " " . implode(" ", $ignoredDatabases) : "";
+			$command .= $ignoreTables ? " " . implode(" ", $ignoreTables) : "";
+			$command .= ($useGzip ? " | gzip -c" : "") . " > " . $file->getPath();
 			$command .= " 2>&1";
 
 			$log->info("run command:", $command);
@@ -123,6 +164,7 @@ class MySQL implements IBackupable {
 			$status = null;
 			exec($command, $output, $status);
 			$log->reply("output:", $output, "status code:", $status);
+
 			if ($status != 0) {
 				throw new Exception(implode("\n", $output));
 			}
@@ -251,10 +293,43 @@ class MySQL implements IBackupable {
 			}
 
 			$this->connection = new MysqliDb($this->dbInfo["host"], $this->dbInfo["username"], $this->dbInfo["password"], null, $this->dbInfo["port"]);
+			$this->connection->ping();
 		}
 		return $this->connection;
 	}
 	protected function ensureCommand(string $command): bool {
 		return boolval(shell_exec("command -v {$command}"));
+	}
+	protected function getIncludes(array $input): array {
+		return $this->validateIncludeExclude($input, "include");
+	}
+	protected function getExcludes(array $input): array {
+		return $this->validateIncludeExclude($input, "exclude");
+	}
+	private function validateIncludeExclude(array $input, string $type = ""): array {
+		$log = Log::getInstance();
+		$result = array();
+		foreach ($input as $key => $dbNameOrTableArray) {
+			if (is_array($dbNameOrTableArray)) {
+				if (!isset($result[$key])) {
+					$result[$key] = array();
+				}
+				foreach ($dbNameOrTableArray as $tkey => $tableName) {
+					if (!is_string($tableName)) {
+						$log->error("the item with index: ({$tkey}) in tables of database: ({$key}) '{$type}' array is not supported! only string is supported, (" . gettype($tableName) . ") given!", $tableName);
+						throw new \InvalidArgumentException("the item with index: ({$tkey}) in tables of database: ({$key}) '{$type}' array is not supported! only string is supported, (" . gettype($tableName) . ") given!");
+					}
+					$result[$key][] = $tableName;
+				}
+			} elseif (is_string($dbNameOrTableArray)) {
+				if (!isset($result[$dbNameOrTableArray])) {
+					$result[$dbNameOrTableArray] = array();
+				}
+			} else {
+				$log->error("the item: ({$key}) in '{$type}' array is not supported! only string or array is supported, (" . gettype($dbNameOrTableArray) . ") given!");
+				throw new \InvalidArgumentException("the item: ({$key}) in '{$type}' array is not supported! only string or array is supported, (" . gettype($dbNameOrTableArray) . ") given!");
+			}
+		}
+		return $result;
 	}
 }

@@ -153,7 +153,7 @@ class Destination {
 		return $this->options;
 	}
 
-	public function getOption(string $name): ?mixed {
+	public function getOption(string $name) {
 		return $this->options[$name] ?? null;
 	}
 
