@@ -30,7 +30,7 @@ class MySQL implements IBackupable {
 		}
 
 		$includes = [];
-		$includeOption = $options["include"] ?? [];
+		$includeOption = $options["only"] ?? [];
 		if (!is_array($includeOption)) {
 			$log->error("the 'include' option should be array! (" . gettype($includeOption) . ") given!");
 			throw new \InvalidArgumentException("the 'include' option should be array! (" . gettype($includeOption) . ") given!");

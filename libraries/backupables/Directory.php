@@ -4,6 +4,7 @@ namespace packages\backuping\backupables;
 use \InvalidArgumentException;
 use packages\base\{IO\File, IO};
 use packages\backuping\{IBackupable, Log};
+use packages\finder\Finder;
 
 class Directory implements IBackupable {
 
@@ -44,21 +45,23 @@ class Directory implements IBackupable {
 			$result->make(true);
 		}
 
-		foreach ($directory->items(true) as $item) {
-			$log->debug("item:", $item->basename);
-			if ($this->isMatch($excludes, $item->basename)) {
-				$log->reply("skip, matches in exclude!");
-				continue;
-			}
+		$finder = (new Finder)->in($directory->getPath());
+		$finder->notPath($excludes);
+
+		foreach ($finder as $splFile) {
+			$item = $splFile->getJalnoIO();
+			$log->info("add item:", $item->getPath());
 			$relativePath = $directory->getRelativePath($item);
 			if ($item instanceof IO\File) {
 				$file = $result->file($relativePath);
+				$fileDir = $file->getDirectory();
+				if (!$fileDir->exists()) {
+					$fileDir->make(true);
+				}
 				$item->copyTo($file);
-			} else {
-				$dir = $result->directory($relativePath);
-				$item->copyTo($dir);
 			}
 		}
+
 		return $result;
 	}
 	public function restore($repo, array $options = array()): void {
@@ -90,6 +93,7 @@ class Directory implements IBackupable {
 			}
 		}
 	}
+
 	protected function isMatch(array $patterns, string $subject): bool {
 		foreach ($patterns as $pattern) {
 			if (preg_match("/{$pattern}/", $subject)) {

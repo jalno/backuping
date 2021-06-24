@@ -3,5 +3,5 @@
 	"autoload": {
 		"directories": ["libraries", "processes"]
 	},
-	"dependencies": ["base", "phpmailer"]
+	"dependencies": ["base", "finder", "phpmailer"]
 }
