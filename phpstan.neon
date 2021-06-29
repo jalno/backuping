@@ -1,0 +1,8 @@
+parameters:
+  level: 0
+  scanDirectories:
+    - ../
+    - ../base
+    - ../phpmailer
+  ignoreErrors:
+    - "/(Class|Interface|Trait) .+ referenced with incorrect case/"

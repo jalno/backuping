@@ -1,0 +1,16 @@
+{
+	"permissions": "*",
+	"autoload": {
+		"directories": ["libraries", "listeners", "processes"]
+	},
+	"languages": {
+		"fa_IR": "langs/fa_IR.json"
+	},
+	"dependencies": ["base", "cronjob", "finder", "phpmailer"],
+	"events": [
+		{
+			"name": "packages/cronjob/events/tasks",
+			"listener": "listeners/Cronjob@tasks"
+		}
+	]
+}
