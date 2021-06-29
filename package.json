@@ -6,7 +6,7 @@
 	"languages": {
 		"fa_IR": "langs/fa_IR.json"
 	},
-	"dependencies": ["base", "finder", "phpmailer"],
+	"dependencies": ["base", "cronjob", "finder", "phpmailer"],
 	"events": [
 		{
 			"name": "packages/cronjob/events/tasks",
