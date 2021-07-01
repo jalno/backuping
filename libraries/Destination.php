@@ -106,6 +106,7 @@ class Destination {
 		} elseif (is_callable($directory)) {
 			$log->info("directory is callable, so call it...");
 			$directoryObj = $directory($options);
+			$log->reply("done", $directoryObj);
 		}
 		if (!($directoryObj instanceof IO\Directory)) {
 			$log->error("the given directory is not understood! type: '" . gettype($directory) . "'");
@@ -119,6 +120,7 @@ class Destination {
 			throw new InvalidArgumentException("the 'lifetime' should be a valid number");
 		}
 
+		$log->info("destination object created! id:", $id);
 		return new self($id, $directoryObj, $lifetime, $options);
 	}
 
