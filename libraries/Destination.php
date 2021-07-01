@@ -34,7 +34,7 @@ class Destination {
 		}
 
 		if (is_string($directory)) {
-			/** start's with '.' or contains '/' */
+			// start's with '.' or contains '/'
 			if (strpos($directory, "/") !== false or $directory[0] == ".") {
 
 				$directoryObj = new IO\Directory\Local($directory);

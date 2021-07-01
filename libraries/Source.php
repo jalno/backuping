@@ -28,21 +28,27 @@ class Source {
 
 		$type = $config["type"] ?? null;
 		if (!$type) {
-			$log->error("you should pass 'type' index that is instance of '" . IBackupable::class . "' or callable that return this type");
-			throw new InvalidArgumentException("you should pass 'type' index that is instance of '" . IBackupable::class . "' or callable that return this type");
+			$log->error("you should pass 'type' index that is instance or class-string of'" . IBackupable::class . "' or callable that return this type");
+			throw new InvalidArgumentException("you should pass 'type' index that is instance or class-string of '" . IBackupable::class . "' or callable that return this type");
 		}
-		if (is_callable($type)) {
+		$backupable = null;
+		if (is_string($type) and class_exists($type)) {
+			$log->info("the type is class-string, so we try to create instance of it");
+			$backupable = new $type();
+		} elseif (is_callable($type)) {
 			$log->info("type is callable, so call it");
-			$type = $type($options);
-			$log->reply("done", $type);
+			$backupable = $type($options);
+			$log->reply("done", $backupable);
+		} else {
+			$backupable = $type;
 		}
-		if (!($type instanceof IBackupable)) {
-			$log->error("the 'type' index should be instance of '" . IBackupable::class . "' or callable that return this type, (" . gettype($type) . ") given!");
-			throw new InvalidArgumentException("the 'type' index should be instance of '" . IBackupable::class . "' or callable that return this type, (" . gettype($type) . ") given!");
+		if (!($backupable instanceof IBackupable)) {
+			$log->error("the 'type' index should be instance or class-string of '" . IBackupable::class . "' or callable that return this type, (" . gettype($type) . ") given!");
+			throw new InvalidArgumentException("the 'type' index should be instance or class-string of '" . IBackupable::class . "' or callable that return this type, (" . gettype($type) . ") given!");
 		}
 
-		$log->info("source object created! id:", $id);
-		return new self($id, $type, $options);
+		$log->info("create new source with id: '{$id}'");
+		return new self($id, $backupable, $options);
 	}
 
 	protected string $id;
