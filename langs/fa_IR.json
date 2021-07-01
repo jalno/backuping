@@ -5,6 +5,6 @@
 	},
 	"rtl": true,
 	"phrases":{
-		"cronjob.task.name.backuping_backup": "گرفتن نسخه پشتیبان (بک آپ) از جی سرور"
+		"cronjob.task.name.backuping_backup": "گرفتن نسخه پشتیبان"
 	}
 }

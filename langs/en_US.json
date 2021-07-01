@@ -5,6 +5,6 @@
 	},
 	"rtl": false,
 	"phrases":{
-		"cronjob.task.name.backuping_backup": "Backuping JeyServer"
+		"cronjob.task.name.backuping_backup": "Backuping"
 	}
 }
