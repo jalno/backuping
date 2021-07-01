@@ -15,6 +15,7 @@ class Cronjob {
 		$task->parameters = array();
 		$task->schedules = array(
 			new Schedule(array(
+				'minute' => 0,
 				'hour' => 5,
 			)),
 		);
