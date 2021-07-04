@@ -35,6 +35,32 @@ class Backup {
 				throw new Error("packages.backuping.backup.config_not_found");
 			}
 
+			$globalOptions = $option["options"] ?? null;
+			$log->info("main 'options':", $globalOptions);
+			if ($globalOptions) {
+				if (!is_array($globalOptions)) {
+					$log->reply()->error("options is not array!");
+					throw new Error("packages.backuping.Backup.options_is_not_array");
+				}
+
+				if (isset($globalOptions["cleanup_on_backup"])) {
+					Source::setGlobalCleanupOnBackup(boolval($globalOptions["cleanup_on_backup"]));
+					$log->info("Source::globalShouldCleanupOnBackup is:", Source::globalShouldCleanupOnBackup() ? "true" : "false");
+				}
+
+				if (isset($globalOptions["minimum_keeping_source_backups"])) {
+					if (!is_numeric($globalOptions["minimum_keeping_source_backups"])) {
+						$log->reply()->error("the 'minimum_keeping_source_backups' is not numeric!");
+						throw new Error("packages.backuping.Backup.minimum_keeping_source_backups.is_not_numeric");
+					} elseif ($globalOptions["minimum_keeping_source_backups"] < 0) {
+						$log->reply()->error("the 'minimum_keeping_source_backups' should zero or higher!");
+						throw new Error("packages.backuping.Backup.minimum_keeping_source_backups.is_smaller_than_zero");
+					}
+					$log->info("the 'minimum_keeping_source_backups' is set to:", $globalOptions["minimum_keeping_source_backups"]);
+					Source::setGlobalMinKeepingBackupsCount($globalOptions["minimum_keeping_source_backups"]);
+				}
+			}
+
 			$log->info("try prepare sources...");
 			$sources = $option["sources"] ?? null;
 			if (empty($sources)) {

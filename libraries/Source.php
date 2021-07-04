@@ -47,13 +47,57 @@ class Source {
 			throw new InvalidArgumentException("the 'type' index should be instance or class-string of '" . IBackupable::class . "' or callable that return this type, (" . gettype($type) . ") given!");
 		}
 
+		$minBackups = $config["minimum_keeping_backups"] ?? null;
+		if ($minBackups !== null) {
+			if (!is_numeric($minBackups)) {
+				$log->error("the given 'minimum_keeping_backups' is not numeric!");
+				throw new InvalidArgumentException("the given 'minimum_keeping_backups' is not numeric!");
+			} elseif ($minBackups < 0) {
+				$log->error("the given 'minimum_keeping_backups' should be zero or bigger! given value: {$minBackups}");
+				throw new InvalidArgumentException("the given 'minimum_keeping_backups' should be zero or bigger! given value: {$minBackups}");
+			}
+		}
+
+		$cleanupOnBackup = $config["cleanup_on_backup"] ?? null;
+
 		$log->info("create new source with id: '{$id}'");
-		return new self($id, $backupable, $options);
+		$source = new self($id, $backupable, $options);
+		if ($minBackups !== null) {
+			$source->setMinKeepingBackupCount($minBackups);
+		}
+		if ($cleanupOnBackup !== null) {
+			$source->setCleanupOnBackup(boolval($cleanupOnBackup));
+		}
+		return $source;
 	}
+
+	public static function setGlobalCleanupOnBackup(bool $value): void {
+		self::$globalCleanupOnBackup = $value;
+	}
+
+	public static function globalShouldCleanupOnBackup(): bool {
+		return self::$globalCleanupOnBackup;
+	}
+
+	public static function setGlobalMinKeepingBackupsCount(int $min): void {
+		if ($min < 0) {
+			throw new InvalidArgumentException("the global minimum keeping backup should zero or bigger!");
+		}
+		self::$globalMinKeepingBackup = $min;
+	}
+
+	public static function getGlobalMinKeepingBackupsCount(): int {
+		return self::$globalMinKeepingBackup;
+	}
+
+	protected static int $globalMinKeepingBackup = 0;
+	protected static bool $globalCleanupOnBackup = false;
 
 	protected string $id;
 	protected ?IBackupable $type;
 	protected array $options;
+	protected ?int $minKeepingBackup = null;
+	protected ?bool $cleanupOnBackup = null;
 
 	public function __construct(string $id, IBackupable $type, array $options = array()) {
 		$this->id = $id;
@@ -67,6 +111,31 @@ class Source {
 
 	public function getType(): IBackupable {
 		return $this->type;
+	}
+
+	public function setCleanupOnBackup(bool $value): void {
+		$this->cleanupOnBackup = $value;
+	}
+
+	public function shouldCleanupOnBackup(): bool {
+		if ($this->cleanupOnBackup === null) {
+			return self::globalShouldCleanupOnBackup();
+		}
+		return $this->cleanupOnBackup;
+	}
+
+	public function setMinKeepingBackupCount(int $min): void {
+		if ($min < 0) {
+			throw new InvalidArgumentException("the minimum keeping backup should zero or bigger!");
+		}
+		$this->minKeepingBackup = $min;
+	}
+
+	public function getMinKeepingBackupCount(): int {
+		if ($this->minKeepingBackup === null) {
+			return self::getGlobalMinKeepingBackupsCount();
+		}
+		return $this->minKeepingBackup;
 	}
 
 	public function getOptions(): array {
