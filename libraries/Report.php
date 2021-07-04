@@ -60,11 +60,12 @@ class Report {
 	public function send() {
 		$mail = new PHPMailer();
 
-		// $mail->SMTPDebug = SMTP::DEBUG_SERVER;
+		// in case you want to debug send email, uncomment these lines:
 
+		/*
 		$logger = Log::getInstance();
 		$logger->info("Report::send phpMailer debug:");
-
+		$mail->SMTPDebug = SMTP::DEBUG_SERVER;
 		$mail->Debugoutput = function($str, $level) use (&$logger) {
 			$levelText = "";
 			switch ($level) {
@@ -76,6 +77,7 @@ class Report {
 			}
 			$logger->info("(" . $levelText . ") : " . $str);
 		};
+		*/
 
 		foreach ($this->receivers as $receiver) {
 			$mail->addAddress($receiver['mail'], $receiver['name'] ?? '');
@@ -84,7 +86,6 @@ class Report {
 		if ($this->from['address']) {
 			$mail->setFrom($this->from['address'], isset($this->from['name']) ? $this->from['name'] : '');
 		}
-
 
 		if ($this->options['mailer'] == 'mail') {
 			$mail->isMail();
@@ -104,8 +105,8 @@ class Report {
 			} elseif (isset($this->options['username']) or $this->options['password']) {
 				$mail->SMTPAuth = true;
 			}
-			if (isset($options['auth_type'])) {
-				$mail->AuthType = $options['auth_type'];
+			if (isset($this->options['auth_type'])) {
+				$mail->AuthType = $this->options['auth_type'];
 			}
 		}
 
