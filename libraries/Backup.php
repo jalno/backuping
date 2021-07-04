@@ -137,28 +137,6 @@ class Backup {
 				}
 				$this->config["report"]["receivers"] = $receivers;
 			}
-			if ($report and isset($report["sender"]) and isset($report["receivers"])) {
-				$subject = $report["subject"] ?? "Backuping Report";
-				if (!is_string($subject)) {
-					$log->error("report subject should be string");
-					throw new InvalidArgumentException("report subject should be string");
-				}
-				$this->config["report"]["subject"] = $subject;
-
-				$sender = $report["sender"] ?? null;
-				if (!$sender or !is_array($sender)) {
-					$log->error("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
-					throw new InvalidArgumentException("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
-				}
-				$this->config["report"]["sender"] = $sender;
-
-				$receivers = $report["receivers"] ?? [];
-				if (!$receivers) {
-					$log->error("you should add receivers to report is sendable");
-					throw new InvalidArgumentException("you should add receivers to report is sendable");
-				}
-				$this->config["report"]["receivers"] = $receivers;
-			}
 
 			$this->configLoaded = true;
 		} else {
