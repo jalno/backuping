@@ -87,8 +87,19 @@
 	'report' => array(
 		'subject' => 'Backup of something',
 		'sender' => array(
-			'name' => 'SERVER_EMAIL_ADDR',
-			'mail' => 'SERVER_MAIL_ADDR',
+			'type' => "mail", // or "smtp"
+			'options' => "smtp" ? array(
+				'host' => "host_address",
+				'port' => 25,
+				'smtp_auth' => true or false,
+				'username' => "username",
+				'password' => "password",
+				'auth_type' => "auth_type, like PLAIN",
+			) : array(),
+			'from' => array(
+				'address' => "reporter@ssh2.ir",
+				'name' => "Backup Reporter",
+			),
 		),
 		'receivers' => array(
 			array(
