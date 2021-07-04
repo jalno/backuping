@@ -256,13 +256,14 @@ class Backuping extends Process {
 
 					$directory = $destination->getDirectory();
 					$log->info("find backup file of source: {$sourceID} on destination: {$destinationID}");
-					$backupFiles = array_filter(
-						$directory->files(false),
-						fn(IO\File $file) => preg_match(
-							"/^" . preg_quote($sourceID) . "-(\d+)(-directory)?\.zip$/",
-							$file->basename
-						)
-					);
+
+					$backupFiles = array();
+					foreach ($directory->files(false) as $file) {
+						if (preg_match("/^" . preg_quote($sourceID) . "-(\d+)(-directory)?\.zip$/", $file->basename, $matches)) {
+							$backupFiles[$matches[1]] = $file;
+						}
+					}
+
 					$backupFilesCount = count($backupFiles);
 					$log->reply("count:", $backupFilesCount);
 
@@ -277,21 +278,12 @@ class Backuping extends Process {
 						continue;
 					}
 
-					usort($backupFiles, function(IO\File $a, IO\File $b) {
-						$aTime = preg_match("/\-(\d+)(-directory)?\.zip$/", $a->basename);
-						$bTime = preg_match("/\-(\d+)(-directory)?\.zip$/", $b->basename);
-						if ($aTime == $bTime) {
-							return 0;
-						}
-						return ($aTime < $bTime) ? -1 : 1;
-					});
+					// sort backups ASC, so older backups comes first
+					ksort($backupFiles);
 
 					$shouldBeDeleted = array();
-					foreach ($backupFiles as $file) {
-						// this should be matched always
-						preg_match("/\-(\d+)(-directory)?\.zip$/", $file->basename, $matches);
-
-						if ((Date::time() - $matches[1] > $lifetime * 86400) and count($shouldBeDeleted) <= $backupFilesCount - $minimumBackups) {
+					foreach ($backupFiles as $backupAt => $file) {
+						if ((Date::time() - $backupAt > $lifetime * 86400) and count($shouldBeDeleted) <= $backupFilesCount - $minimumBackups) {
 							$shouldBeDeleted[] = $file;
 						}
 					}
