@@ -288,7 +288,6 @@ class MySQL implements IBackupable {
 					throw new InvalidArgumentException("the given 'port' is not valid, it should be numeric and between 1 and 65535");
 				}
 			} else {
-				trigger_error("the port is not given! so we use 3306 as default port!");
 				$this->dbInfo["port"] = 3306;
 			}
 
