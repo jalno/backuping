@@ -67,7 +67,6 @@ class Backup {
 			$report = $option["report"] ?? null;
 			if (!$report) {
 				$log->warn("the report is empty, it seems no need to report");
-				trigger_error("the report is empty, it seems no need to report");
 			} else {
 				$subject = $report["subject"] ?? "Backuping Report";
 				if (!is_string($subject)) {
@@ -81,6 +80,28 @@ class Backup {
 					$log->error("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
 					throw new InvalidArgumentException("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
 				}
+
+				$sender["type"] = isset($sender["type"]) ? strtolower(trim($sender["type"])) : null;
+
+				if (empty($sender["type"])) {
+					$log->info("the 'type' of sender is not passed, so we use 'mail' as sender");
+				} elseif (!in_array($sender["type"], ["mail", "smtp"])) {
+					$log->error("the sender['type'] index is not valid, currently only support 'mail' and 'smtp'");
+					throw new InvalidArgumentException("you should pass email sender as array with 'email' (and 'name') index or remove report index to skip report");
+				} elseif ($sender["type"] == 'smtp') {
+					$sender['options'] = is_array($sender['options']) ? $sender['options'] : [];
+					if (!isset($sender['options']['host'])) {
+						$log->error("you choosed 'smtp' driver to send email, but not gived ['options']['host'], check against your config");
+						throw new InvalidArgumentException("you choosed 'smtp' driver to send email, but not gived 'host' index in 'options', check against your config");
+					}
+					if (!isset($sender['options']['port']) or empty($sender['options']['port'])) {
+						$log->warn("the port is not set or is empty, so we use default 25");
+					} elseif (!is_numeric($sender['options']['port'])) {
+						$log->error("the given ['options']['port'] is not numeric!, check against your config!");
+						throw new InvalidArgumentException("the given ['options']['port'] is not numeric!, check against your config!");
+					}
+				}
+
 				$this->config["report"]["sender"] = $sender;
 
 				$receivers = $report["receivers"] ?? [];

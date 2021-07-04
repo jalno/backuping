@@ -292,7 +292,10 @@ class Backuping extends Process {
 			$log->info("prepare send email...");
 			$messages = Log::getMessages();
 			$report = new Report();
-			$report->setSender($info["sender"]);
+			$report->setMailer($info["sender"]["type"] ?? "mail", $info["sender"]["options"] ?? []);
+			if (isset($info["sender"]["from"], $info["sender"]["from"]["address"])) {
+				$report->setFrom($info["sender"]["from"]["address"], $info["sender"]["from"]["name"] ?? "");
+			}
 			$report->setSubject($info["subject"] . ((isset($option["subject"]) and $option["subject"]) ? " - " . $option["subject"] : ""));
 			$report->setMessage(implode(PHP_EOL, $messages));
 			foreach ($info["receivers"] as $receiver) {
@@ -301,7 +304,11 @@ class Backuping extends Process {
 
 			$log->info("send email...");
 			$result = $report->send();
-			$log->reply("result:", $result);
+			if ($result) {
+				$log->reply("result:", $result);
+			} else {
+				$log->reply()->warn("an error in send email!");
+			}
 
 		} else {
 			$log->warn("the report info is not set, so skip reporting");
