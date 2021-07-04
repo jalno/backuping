@@ -2,12 +2,23 @@
 
 // Add this config index to your config
 ["packages.backuping.config" => array(
+	"options" => array(
+		// the global option to cleanup backups after backup each source
+		// you can override this for each source you want by pass 'cleanup_on_backup' key in source
+		"cleanup_on_backup" => true,
+
+		// how many backup should be kept of each source?
+		// you can override this for each source by passing 'minimum_keeping_backups' in source array
+		// this should be zero or bigger than it!
+		"minimum_keeping_source_backups" => 1,
+	),
 	"sources" => array(
 		array(
 			"id" => "my-project-backup",
 			"type" => function(?array $options) {
 				return new \packages\backuping\backupables\Directory();
 			},
+			"cleanup_on_backup" => false,
 			"options" => array(
 				"directory" => function() {
 					return new \packages\base\IO\Directory\Local("/home/jeyserver");
@@ -26,6 +37,8 @@
 			"type" => function (?array $options = null) {
 				return new \packages\backuping\backupables\MySQL();
 			},
+			// "cleanup_on_backup" => true,
+			// "minimum_keeping_backups" => 5,
 			"options" => array(
 				"host" => "localhost",
 				"port" => 3306,
