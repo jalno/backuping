@@ -73,6 +73,18 @@ class Backuping extends Process {
 						
 						if ($fileForTransfer->copyTo($destFile)) {
 							$log->reply("done!");
+
+							$log->info("the backup is OK, so cleanup on backup?");
+							if ($source->shouldCleanupOnBackup()) {
+								$log->reply("yes");
+								$this->cleanup(array(
+									"sources" => [$sourceID],
+									"report" => false, // send all report at the end of backup instead of send chunk report
+								));
+							} else {
+								$log->reply("no!");
+							}
+
 						} else {
 							$log->reply("faild! copyTo return false!");
 						}
@@ -87,9 +99,11 @@ class Backuping extends Process {
 			}
 		}
 
-		$this->report(array(
-			"subject" => "backup",
-		));
+		if (!isset($data["report"]) or $data["report"]) {
+			$this->report(array(
+				"subject" => "backup",
+			));
+		}
 	}
 
 	/**
@@ -209,9 +223,11 @@ class Backuping extends Process {
 			}
 		}
 
-		$this->report(array(
-			"subject" => "restore",
-		));
+		if (!isset($data["report"]) or $data["report"]) {
+			$this->report(array(
+				"subject" => "restore",
+			));
+		}
 	}
 
 	/**
@@ -238,17 +254,37 @@ class Backuping extends Process {
 					}
 					$log->info("the lifetime of destination ($destinationID) is ({$lifetime}) day");
 
-					$shouldBeDeleted = array();
-
 					$directory = $destination->getDirectory();
+					$log->info("find backup file of source: {$sourceID} on destination: {$destinationID}");
+
+					$backupFiles = array();
 					foreach ($directory->files(false) as $file) {
-						if (
-							substr($file->basename, 0, strlen($sourceID) + 1) == $sourceID . '-' and
-							preg_match("/\-(\d+)(-directory)?\.zip$/", $file->basename, $matches)
-						) {
-							if (Date::time() - $matches[1] > $lifetime * 86400) {
-								$shouldBeDeleted[] = $file;
-							}
+						if (preg_match("/^" . preg_quote($sourceID) . "-(\d+)(-directory)?\.zip$/", $file->basename, $matches)) {
+							$backupFiles[$matches[1]] = $file;
+						}
+					}
+
+					$backupFilesCount = count($backupFiles);
+					$log->reply("count:", $backupFilesCount);
+
+					if (empty($backupFiles)) {
+						$log->warn("no backup found, skip");
+						continue;
+					}
+
+					$minimumBackups = $source->getMinKeepingBackupCount();
+					if ($backupFilesCount <= $minimumBackups) {
+						$log->warn("skip, minimum backup of this source is: {$minimumBackups}");
+						continue;
+					}
+
+					// sort backups ASC, so older backups comes first
+					ksort($backupFiles);
+
+					$shouldBeDeleted = array();
+					foreach ($backupFiles as $backupAt => $file) {
+						if ((Date::time() - $backupAt > $lifetime * 86400) and count($shouldBeDeleted) <= $backupFilesCount - $minimumBackups) {
+							$shouldBeDeleted[] = $file;
 						}
 					}
 
@@ -268,16 +304,17 @@ class Backuping extends Process {
 						}
 					}
 				}
-				$log->reply("done");
 
 			} catch (\Exception $e) {
 				$log->error("error! message:", $e->getMessage(), "class:", get_class($e));
 			}
 		}
 
-		$this->report(array(
-			"subject" => "cleanup",
-		));
+		if (!isset($data["report"]) or $data["report"]) {
+			$this->report(array(
+				"subject" => "cleanup",
+			));
+		}
 	}
 
 	protected function report(?array $option) {
@@ -292,7 +329,10 @@ class Backuping extends Process {
 			$log->info("prepare send email...");
 			$messages = Log::getMessages();
 			$report = new Report();
-			$report->setSender($info["sender"]);
+			$report->setMailer($info["sender"]["type"] ?? "mail", $info["sender"]["options"] ?? []);
+			if (isset($info["sender"]["from"], $info["sender"]["from"]["address"])) {
+				$report->setFrom($info["sender"]["from"]["address"], $info["sender"]["from"]["name"] ?? "");
+			}
 			$report->setSubject($info["subject"] . ((isset($option["subject"]) and $option["subject"]) ? " - " . $option["subject"] : ""));
 			$report->setMessage(implode(PHP_EOL, $messages));
 			foreach ($info["receivers"] as $receiver) {
@@ -301,7 +341,11 @@ class Backuping extends Process {
 
 			$log->info("send email...");
 			$result = $report->send();
-			$log->reply("result:", $result);
+			if ($result) {
+				$log->reply("result:", $result);
+			} else {
+				$log->reply()->warn("an error in send email!");
+			}
 
 		} else {
 			$log->warn("the report info is not set, so skip reporting");
@@ -390,7 +434,7 @@ class Backuping extends Process {
 			foreach ($allSources as $source) {
 				if ($source->getID() == $sourceID) {
 					$sources[] = $source;
-					continue;
+					continue 2;
 				}
 			}
 			$log->error("the given source id ({$sourceID}) is not exists!");
@@ -425,7 +469,7 @@ class Backuping extends Process {
 			foreach ($allDestionations as $destionation) {
 				if ($destionation->getID() == $destinationID) {
 					$destionations[] = $destionation;
-					continue;
+					continue 2;
 				}
 			}
 			$log->error("the given destination id ({$destinationID}) is not exists!");
