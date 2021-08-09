@@ -20,7 +20,7 @@ build app:
     - apk --no-cache add git
     - cd $GIT_ROOT_PATH
     - rm -fr base && git clone --depth 1 ${REPO_SERVER_HOST}/jalno/base.git base
-    - cd ${GIT_ROOT_PATH} && cp -Rf base/* . && cd packages
+    - cd ${GIT_ROOT_PATH} && cp -Rf base/* . && rm -fr base && cd packages
     - rm -fr PhpParser && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/PhpParser.git
     - rm -fr phpmailer && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/phpmailer.git
     - rm -fr dockerize && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/dockerize.git
