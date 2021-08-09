@@ -23,7 +23,7 @@ class MongoDB implements IBackupable {
 
 		$this->validateDatabaseInfo($options);
 
-		$databases = $this->getDatabaes($options);
+		$databases = $this->getDatabases($options);
 		$excludeCollections = $this->getExcludeCollection($options);
 		$excludeCollectionsWithPrefix = $this->getExcludeCollectionsWithPrefix($options);
 
@@ -86,11 +86,12 @@ class MongoDB implements IBackupable {
 	}
 
 	public function restore($repo, array $options = array()): void {
-		$this->getMysqliDB($options);
+		$this->validateDatabaseInfo($options);
+
 		$log = Log::getInstance();
 		$log->info("start mongoDB restore");
 
-		$databases = $this->getDatabaes($options);
+		$databases = $this->getDatabases($options);
 
 		$command = "mongodump";
 		if ($this->mongoURI) {
@@ -181,7 +182,8 @@ class MongoDB implements IBackupable {
 
 	}
 
-	protected function getDatabaes(array $options): array {
+	protected function getDatabases(array $options): array {
+		$log = Log::getInstance();
 		$databases = $options["db"] ?? [];
 		if ($databases) {
 			if (!is_array($databases)) {
