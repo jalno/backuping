@@ -4,22 +4,45 @@ BACKUPING_PHP_BIN=/usr/local/bin/php
 BACKUPING_BACKUPING_INDEX_FILE=/var/www/html/index.php
 BACKUPING_BACKUPING_PROCESS=packages/backuping/processes/Backuping
 
-if [ "$1" = "start" ] 
-then
-	/bin/echo -e "[Backuping]: action is: '$1'";
-	export > /backuping-env.save
+if [ -z "${BACKUPING_ENTRYPOINT_QUIET_LOGS:-}" ]; then
+    exec 3>&1
+else
+    exec 3>/dev/null
+fi
 
-	if [ -n "$BACKUPING_BACKUP_CRON_EXPRESSION" ]; then
-		echo "[Backuping]: Setup cronjob"
-		echo "$BACKUPING_BACKUP_CRON_EXPRESSION source /backuping-env.save && $BACKUPING_PHP_BIN $BACKUPING_BACKUPING_INDEX_FILE --process=$BACKUPING_BACKUPING_PROCESS@backup ${BACKUPING_BACKUP_CRON_VERBOSE:+--verbose}";
-		/usr/sbin/crond -f -l 4
+if [ "$1" = "start" ]
+then
+	if /usr/bin/find "/docker-entrypoint.d/" -mindepth 1 -maxdepth 1 -type f -print -quit 2>/dev/null | read v;
+	then
+		/bin/echo >&3 "[Backuping]: /docker-entrypoint.d/ is not empty, will attempt to perform configuration"
+
+		/bin/echo >&3 "[Backuping]: Looking for shell scripts in /docker-entrypoint.d/"
+		find "/docker-entrypoint.d/" -follow -type f -print | sort -V | while read -r f; do
+			case "$f" in
+				*.sh)
+					if [ -x "$f" ]; then
+						/bin/echo >&3 "[Backuping]: Launching $f";
+						"$f"
+					else
+						# warn on shell scripts without exec bit
+						/bin/echo >&3 "[Backuping]: Ignoring $f, not executable";
+					fi
+					;;
+				*) /bin/echo >&3 "[Backuping]: Ignoring $f";;
+			esac
+		done
+
+		/bin/echo >&3 "[Backuping]: Configuration complete; ready for start up"
+	else
+		/bin/echo >&3 "[Backuping]: No files found in /docker-entrypoint.d/, skipping configuration"
 	fi
+
+	/usr/sbin/crond -f
 
 elif [ "$1" = "backup" ] || [ "$1" = "restore" ] || [ "$1" = "cleanup" ]
 then
 	/bin/echo -e "[Backuping]: action is: '$1'";
-	eval "$BACKUPING_PHP_BIN $BACKUPING_BACKUPING_INDEX_FILE --process=$BACKUPING_BACKUPING_PROCESS@$1"
+	/usr/local/bin/php /var/www/html/index.php --process=packages/backuping/processes/Backuping@"$@"
 else
-	eval $1
+	$@
 fi
-

@@ -72,6 +72,8 @@ class MongoDB implements IBackupable {
 		$repo = new IO\Directory\TMP();
 		$command .= " --out=" . $repo->getRealPath();
 
+		$command .= " 2>&1";
+
 		$log->info("run command:", $command);
 		$output = null;
 		$status = null;
@@ -93,7 +95,7 @@ class MongoDB implements IBackupable {
 
 		$databases = $this->getDatabases($options);
 
-		$command = "mongodump";
+		$command = "mongorestore";
 		if ($this->mongoURI) {
 			$command .= " --uri=" . rawurlencode($this->mongoURI);
 		} else {
@@ -108,6 +110,8 @@ class MongoDB implements IBackupable {
 		}
 
 		$command .= " --dir=" . $repo->getRealPath();
+
+		$command .= " 2>&1";
 
 		$log->info("run command:", $command);
 		$output = null;
