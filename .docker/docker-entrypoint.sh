@@ -39,7 +39,7 @@ then
 
 	/usr/sbin/crond -f
 
-elif [ "$1" = "backup" ] || [ "$1" = "restore" ] || [ "$1" = "cleanup" ]
+elif [ "$1" = "help" ] || [ "$1" = "backup" ] || [ "$1" = "restore" ] || [ "$1" = "cleanup" ]
 then
 	/bin/echo -e "[Backuping]: action is: '$1'";
 	/usr/local/bin/php /var/www/html/index.php --process=packages/backuping/processes/Backuping@"$@"
