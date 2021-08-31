@@ -2,11 +2,11 @@
 
 if [ -z "$1" ]
 then
-	exec /usr/local/bin/php /var/www/html/index.php --process=packages/backuping/processes/Backuping@help
+	php /var/www/html/index.php --process=packages/backuping/processes/Backuping@help
 elif [ "$1" != "help" ] && [ "$1" != "backup" ] && [ "$1" != "restore" ] && [ "$1" != "cleanup" ]
 then
-	/bin/echo "backuping: '$1' is not a backuping command!"
-	/bin/echo "See 'backuping help'"
+	echo "backuping: '$1' is not a backuping command!"
+	echo "See 'backuping help'"
 else
-	exec /usr/local/bin/php /var/www/html/index.php --process=packages/backuping/processes/Backuping@"$@"
+	php /var/www/html/index.php --process=packages/backuping/processes/Backuping@"$@"
 fi
