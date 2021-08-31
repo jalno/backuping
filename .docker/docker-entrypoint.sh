@@ -37,12 +37,7 @@ then
 		/bin/echo >&3 "[Backuping]: No files found in /docker-entrypoint.d/, skipping configuration"
 	fi
 
-	/usr/sbin/crond -f
-
-elif [ "$1" = "help" ] || [ "$1" = "backup" ] || [ "$1" = "restore" ] || [ "$1" = "cleanup" ]
-then
-	/bin/echo -e "[Backuping]: action is: '$1'";
-	/usr/local/bin/php /var/www/html/index.php --process=packages/backuping/processes/Backuping@"$@"
+	exec /usr/sbin/crond -f
 else
-	$@
+	exec $@
 fi
