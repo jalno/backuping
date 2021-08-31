@@ -3,6 +3,7 @@ FROM registry.git.jeyserver.com/yeganemehr/dockerize:php7.4-alpine
 COPY . /var/www/html
 
 RUN apk --no-cache add mongodb-tools mariadb-client; \
+	mv packages/backuping/.docker/backuping /bin/; \
 	mv packages/backuping/.docker/base/config.php packages/base/libraries/config/config.php; \
 	mv packages/backuping/.docker/base/dbObject.php packages/base/libraries/db/dbObject.php; \
 	mv packages/backuping/.docker/docker-entrypoint.d/ /docker-entrypoint.d; \
@@ -13,4 +14,4 @@ RUN apk --no-cache add mongodb-tools mariadb-client; \
 	sed -e '/$process->save(/ s/^#*/#/' -i packages/base/libraries/router/router.php;
 
 ENTRYPOINT [ "/docker-entrypoint.sh" ]
-CMD [ "start" ]
+CMD [ "/docker-entrypoint.sh", "start" ]
