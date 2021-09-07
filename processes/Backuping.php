@@ -317,6 +317,47 @@ class Backuping extends Process {
 		}
 	}
 
+	public function help(array $data) {
+		echo PHP_EOL;
+		echo "Usage: backup|cleanup|restore [OPTIONS]" . PHP_EOL;
+		echo PHP_EOL . "Backuping: a dynamic tool for get backup from anything!" . PHP_EOL;
+
+		echo PHP_EOL;
+		echo "Commands:" . PHP_EOL;
+		echo "\t" . "backup [--verbose] [--sources=<source-id>] [--destinations=<destination-id>]" . PHP_EOL;
+		echo "\t" . "clanup [--verbose] [--sources=<source-id>] [--destinations=<destination-id>]" . PHP_EOL;
+		echo "\t" . "restore [--verbose] [--sources=<source-id>] [--destinations=<destination-id>] [--backup-name] [--report]" . PHP_EOL;
+
+		echo PHP_EOL;
+		echo "Global Options:" . PHP_EOL;
+		echo "\t" . "--verbose" . "\t\t\t" . "print the logs for debug purposes" . PHP_EOL;
+		echo "\t" . "--report" . "\t\t\t" . "pass to send report of the action to email" . PHP_EOL;
+		echo "\t" . "--sources=<source-id>" . "\t\t" . "is the id of source you defined in config (may be specified multiple times)" . PHP_EOL;
+		echo "\t" . "--destinations=<destination-id>\tis the id of source you defined in config (may be specified multiple times)" . PHP_EOL;
+
+		echo PHP_EOL;
+		echo "Restore Options:" . PHP_EOL;
+		echo "\t" . "--backup-name" . "\t\t\t" . "the name of the abckup file you want to restore" . PHP_EOL;
+		echo "\t" . "--restore-latest-backup" . "\t\t" . "restore the last backup file" . PHP_EOL;
+		echo PHP_EOL;
+
+		$this->loadConfig($data);
+
+		echo "Sources:" . PHP_EOL;
+		$sources = $this->getSources($data);
+		foreach ($sources as $source) {
+			echo "\t" . "'{$source->getID()}'" . PHP_EOL;
+		}
+		echo PHP_EOL;
+
+		echo "Destinations:" . PHP_EOL;
+		$destinations = $this->getDestinations($data);
+		foreach ($destinations as $destination) {
+			echo "\t" . "'{$destination->getID()}'" . PHP_EOL;
+		}
+		echo PHP_EOL;
+	}
+
 	protected function report(?array $option) {
 		$this->loadConfig($option);
 		$log = BaseLog::getInstance();

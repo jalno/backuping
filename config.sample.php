@@ -63,6 +63,46 @@
 				),
 			),
 		),
+
+		array(
+			"id" => "my-mongodb-backup",
+			"type" => function (?array $options = null) {
+				return new \packages\backuping\backupables\MongoDB();
+			},
+			// "cleanup_on_backup" => true,
+			// "minimum_keeping_backups" => 5,
+			"options" => array(
+				// the URI string for database in this format:
+				//	mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[defaultauthdb][?options]]
+				// you should use one of URI connection string or the set of: host, port, username, password
+				"uri" => null,
+
+				"host" => "localhost",
+				"port" => 27017,
+				"username" => "root",
+				"password" => "YouStrongPassword",
+
+				"gzip" => false, // use gzip for compress
+
+				// You can pass this options to specify which databases to get backup
+				// if you don't pass this options, or pass it as null or empty array, all databases and collection will be backuped
+				// you can pass an database name to backup it completely, or pass it as key-array to backup special collections from a database
+				"db" => array(
+					/*
+					"my_senstive_db", // backup my_senstive_db completely
+					"my_another_senstive_db" => array(
+						"my_first_collection_name_to_backup" // only backup "general_log" table from 'mysql' DB
+					),
+					*/
+				),
+				"excludeCollection" => array( // in case of exclude some collections from backup (same as mongodump command)
+
+				),
+				"excludeCollectionsWithPrefix" => array( // in case of exclude some collections with prefix (same as mongodump command)
+
+				),
+			),
+		),
 	),
 	"destinations" => array(
 		array(
