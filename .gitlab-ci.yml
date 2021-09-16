@@ -25,6 +25,7 @@ build app:
     - rm -fr PhpParser && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/PhpParser.git
     - rm -fr phpmailer && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/phpmailer.git
     - rm -fr dockerize && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/dockerize.git
+    - rm -fr finder && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/finder.git
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - cd $GIT_ROOT_PATH
