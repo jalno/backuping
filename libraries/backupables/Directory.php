@@ -50,6 +50,10 @@ class Directory implements IBackupable {
 
 		foreach ($finder as $splFile) {
 			$item = $splFile->getJalnoIO();
+			if (!$item) {
+				$log->warn('The item:', $splFile->getPathName(), 'is not file or directory, so skip');
+				continue;
+			}
 			$log->info("add item:", $item->getPath());
 			$relativePath = $directory->getRelativePath($item);
 			if ($item instanceof IO\File) {
