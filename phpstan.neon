@@ -1,8 +1,9 @@
 parameters:
-  level: 0
+  level: 5
   scanDirectories:
     - ../
     - ../base
+    - ../finder
     - ../phpmailer
   ignoreErrors:
     - "/(Class|Interface|Trait) .+ referenced with incorrect case/"
