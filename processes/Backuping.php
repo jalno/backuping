@@ -405,7 +405,7 @@ class Backuping extends Process {
 			throw new Exception("packages.backuping.processes.Backuping.error_open_zip_archive");
 		}
 		foreach ($files as $file) {
-			$relativePath = $zipDir->getRelativePath($file);
+			$relativePath = $file->getRelativePath($zipDir);
 			$zip->addFile($file->getPath(), $relativePath);
 
 			/** prevent compress already compressed files! */
