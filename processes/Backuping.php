@@ -12,7 +12,7 @@ class Backuping extends Process {
 	protected ?Backup $backup = null;
 
 	/**
-	 * @param array<{"verbose"?: bool}> $data
+	 * @param array{"verbose"?:bool,"report"?:bool} $data
 	 */
 	public function backup(array $data) {
 		$this->loadConfig($data);
@@ -29,7 +29,6 @@ class Backuping extends Process {
 			$backupFileName = $sourceID . "-" . Date::time();
 
 			try {
-				/** @var IO\File|IO\Directory */
 				$output = $source->getType()->backup($source->getOptions());
 
 				if (!($output instanceof IO\File) and !($output instanceof IO\Directory)) {
@@ -48,6 +47,9 @@ class Backuping extends Process {
 					$log->info("the output is a directory, so we should make it zip file");
 					$tmpZip = new IO\File\TMP();
 					$log->info("try zipping dir: ({$output->getPath()}) to file: ({$tmpZip->getPath()})");
+					if (!$output instanceof IO\Directory\Local) {
+						throw new Exception("currently only can zip local directory, [" . get_class($output) . "] given!");
+					}
 					$this->zipDirectory($output, $tmpZip);
 					$log->reply("done, size:", $this->getHumanReadableSize($tmpZip->size()));
 
@@ -107,7 +109,7 @@ class Backuping extends Process {
 	}
 
 	/**
-	 * @param array<{"verbose"?: bool, "sources"?: array<string>, "destination"?: array<string>, "backup-name"?: string, "restore-latest-backup?": bool}> $data
+	 * @param array{"verbose"?:bool,"report"?:bool,"sources"?:array<string>,"destination"?:array<string>,"backup-name"?:string,"restore-latest-backup"?:bool} $data
 	 */
 	public function restore(array $data) {
 		$this->loadConfig($data);
@@ -197,6 +199,8 @@ class Backuping extends Process {
 					$response = $this->askQuestion("What backup you want to restore?", $answers, true);
 					if (strtolower($response) == "skip") {
 						continue;
+					} else {
+						$response = (int) $response;
 					}
 					$backupFile = $findedBackups[$response - 1];
 				}
@@ -231,7 +235,7 @@ class Backuping extends Process {
 	}
 
 	/**
-	 * @param array<{"verbose"?: bool, "sources"?: array<string>, "destinations"?: array<string>}> $data
+	 * @param array{"verbose"?:bool,"report"?:bool,"sources"?:array<string>,"destinations"?:array<string>} $data
 	 */
 	public function cleanup(array $data) {
 		$this->loadConfig($data);
@@ -405,7 +409,7 @@ class Backuping extends Process {
 			throw new Exception("packages.backuping.processes.Backuping.error_open_zip_archive");
 		}
 		foreach ($files as $file) {
-			$relativePath = $zipDir->getRelativePath($file);
+			$relativePath = $file->getRelativePath($zipDir);
 			$zip->addFile($file->getPath(), $relativePath);
 
 			/** prevent compress already compressed files! */

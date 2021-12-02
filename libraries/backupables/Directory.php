@@ -55,7 +55,7 @@ class Directory implements IBackupable {
 				continue;
 			}
 			$log->info("add item:", $item->getPath());
-			$relativePath = $directory->getRelativePath($item);
+			$relativePath = $item->getRelativePath($directory);
 			if ($item instanceof IO\File) {
 				$file = $result->file($relativePath);
 				$fileDir = $file->getDirectory();
@@ -87,7 +87,7 @@ class Directory implements IBackupable {
 
 		foreach ($repo->items(false) as $item) {
 			$log->debug("item:", $item->basename);
-			$relativePath = $repo->getRelativePath($item);
+			$relativePath = $item->getRelativePath($repo);
 			if ($item instanceof IO\File) {
 				$file = $directory->file($relativePath);
 				$item->copyTo($file);

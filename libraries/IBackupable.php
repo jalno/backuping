@@ -1,18 +1,16 @@
 <?php
 namespace packages\backuping;
 
-use packages\base\{IO\Directory};
-
 interface IBackupable {
 	/**
-	 * @param array $data
-	 * @return IO\File|IO\Directory
+	 * @param array $options
+	 * @return \packages\base\IO\File|\packages\base\IO\Directory
 	 */
 	public function backup(array $options = array());
 
 	/**
-	 * @param IO\File|IO\Directory
-	 * @param array $data
+	 * @param \packages\base\IO\File|\packages\base\IO\Directory $backup
+	 * @param array $options
 	 */
-	public function restore(mixed $backup, array $options = array()): void;
+	public function restore($backup, array $options = array()): void;
 }

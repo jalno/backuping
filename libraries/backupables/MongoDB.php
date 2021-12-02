@@ -87,6 +87,10 @@ class MongoDB implements IBackupable {
 		return $repo;
 	}
 
+	/**
+	 * @param \packages\base\IO\File\Local|\packages\base\IO\Directory\Local $repo
+	 * @param array $options
+	 */
 	public function restore($repo, array $options = array()): void {
 		$this->validateDatabaseInfo($options);
 
@@ -109,7 +113,11 @@ class MongoDB implements IBackupable {
 			$command .= " --gzip";
 		}
 
-		$command .= " --dir=" . $repo->getRealPath();
+		if (method_exists($repo, 'getRealPath')) {
+			$command .= " --dir=" . $repo->getRealPath();
+		} else {
+			$command .= " --dir=" . $repo->getPath();
+		}
 
 		$command .= " 2>&1";
 
