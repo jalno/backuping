@@ -76,13 +76,17 @@ class PostgreSQL implements IBackupable {
 			}
 			$log->reply('yes');
 
+			
 			$baseCommand = sprintf(
-				'PGPASSWORD="%s" pg_dump --no-password --host=%s --username=%s --port=%s',
-				escapeshellcmd($this->dbInfo["password"]),
+				'pg_dump --no-password --host=%s --username=%s --port=%s',
 				escapeshellcmd($this->dbInfo["host"]),
 				escapeshellcmd($this->dbInfo["username"]),
 				escapeshellcmd($this->dbInfo["port"])
 			);
+			if ($this->dbInfo["password"]) {
+				$baseCommand = sprintf('PGPASSWORD="%s"', escapeshellcmd($this->dbInfo["password"])) . ' ' . $baseCommand;
+			}
+
 			if ($jobs) {
 				$baseCommand .= ' ' . sprintf('--jobs=%s', $jobs);
 			}
@@ -135,12 +139,14 @@ class PostgreSQL implements IBackupable {
 		}
 
 		$baseCommand = sprintf(
-			'PGPASSWORD="%s" pg_dumpall --no-password --host=%s --username=%s --port=%s',
-			escapeshellcmd($this->dbInfo["password"]),
+			'pg_dumpall --no-password --host=%s --username=%s --port=%s',
 			escapeshellcmd($this->dbInfo["host"]),
 			escapeshellcmd($this->dbInfo["username"]),
 			escapeshellcmd($this->dbInfo["port"])
 		);
+		if ($this->dbInfo["password"]) {
+			$baseCommand = sprintf('PGPASSWORD="%s"', escapeshellcmd($this->dbInfo["password"])) . ' ' . $baseCommand;
+		}
 
 		$command = $baseCommand;
 		if ($this->excludes) {
