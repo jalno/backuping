@@ -175,7 +175,6 @@ class PostgreSQL implements IBackupable {
 	}
 
 	public function restore($repo, array $options = array()): void {
-		$this->getMysqliDB($options);
 		$log = Log::getInstance();
 		$log->info("start postgresql restore");
 

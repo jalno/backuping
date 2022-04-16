@@ -1,6 +1,6 @@
 <?php
 
-use packages\backuping\Exceptions;
+namespace packages\backuping\Exceptions;
 
 class RuntimeException extends \RuntimeException implements IException
 {

@@ -167,7 +167,8 @@ class Backuping extends Process {
 					$log->warn("can not find any backup for source: ({$sourceID})");
 					continue;
 				}
-				$log->info("find (" . count($findedBackups) . ") backup for source: ({$sourceID})");
+				$countFindedBackups = count($findedBackups);
+				$log->info("find ({$countFindedBackups}) backup for source: ({$sourceID})");
 
 				$backupFile = null;
 
@@ -184,9 +185,9 @@ class Backuping extends Process {
 				} elseif ($backupNameToRestore) {
 					$log->info("you try to restore backup with name: ($backupNameToRestore)");
 				}
-				if (count($findedBackups) == 1) {
+				if ($countFindedBackups == 1) {
 					$backupFile = $findedBackups[0];
-				} elseif (count($findedBackups) > 1) {
+				} else {
 					$log->reply("more that on backup is found! you should select one of theme!");
 
 					$x = 1;

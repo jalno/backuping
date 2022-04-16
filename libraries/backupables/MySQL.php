@@ -38,9 +38,9 @@ class MySQL implements IBackupable {
 			$includes = $this->getIncludes($includeOption);
 		}
 
-		$seprate = boolval($options["seprate"]) ?? true;
+		$seprate = isset($options["seprate"]) and $options["seprate"];
 
-		$shouldUseGzip = boolval($options["gzip"]) ?? false;
+		$shouldUseGzip = isset($options["gzip"]) and $options["gzip"];
 
 		$useGzip = false;
 		if ($shouldUseGzip) {

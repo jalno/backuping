@@ -1,6 +1,6 @@
 <?php
 
-use packages\backuping\Exceptions;
+namespace packages\backuping\Exceptions;
 
 interface IException
 {
