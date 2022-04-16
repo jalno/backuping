@@ -2,7 +2,10 @@ FROM registry.git.jeyserver.com/yeganemehr/dockerize:php7.4-alpine
 
 COPY . /var/www/html
 
-RUN apk --no-cache add mongodb-tools mariadb-client; \
+RUN apk --no-cache add \
+		mongodb-tools \
+		mariadb-client \
+		postgresql-client; \
 	mv packages/backuping/.docker/backuping /bin/backuping; \
 	mv packages/backuping/.docker/base/config.php packages/base/libraries/config/config.php; \
 	mv packages/backuping/.docker/base/dbObject.php packages/base/libraries/db/dbObject.php; \
