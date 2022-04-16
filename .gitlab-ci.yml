@@ -41,6 +41,8 @@ build-app:
     - rm -fr phpmailer && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/phpmailer.git
     - rm -fr dockerize && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/dockerize.git
     - rm -fr finder && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/finder.git
+    - rm -fr s3_api && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/s3_api.git
+    - rm -fr s3 && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/s3.git
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - cd $GIT_ROOT_PATH
@@ -67,6 +69,8 @@ build-app-stable-dependencies:
     - rm -fr phpmailer && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/phpmailer.git && git -C ./phpmailer checkout fdd5ad85e47b60fef08e4c19a9102e47b7618519
     - rm -fr dockerize && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/dockerize.git && git -C ./dockerize checkout 9d53d047d5e448f5b6450e3e8e92a3d8eb28a686
     - rm -fr finder && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/finder.git && git -C ./finder checkout 5d8f2037945a87252904f6be9a10a649db7686c6
+    - rm -fr s3_api && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/s3_api.git && git -C ./s3_api checkout 3c9f76e2478a4371c517edf483a63b86e1a8b6c5
+    - rm -fr s3 && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/s3.git && git -C ./s3 checkout a6f00bfd0cd57caaf4c4a91457454a95af3f7925
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - cd $GIT_ROOT_PATH
