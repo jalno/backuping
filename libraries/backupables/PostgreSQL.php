@@ -84,7 +84,7 @@ class PostgreSQL implements IBackupable {
 				escapeshellcmd($this->dbInfo["port"])
 			);
 			if ($this->dbInfo["password"]) {
-				$baseCommand = sprintf('PGPASSWORD="%s"', escapeshellcmd($this->dbInfo["password"])) . ' ' . $baseCommand;
+				$baseCommand = sprintf('PGPASSWORD="%s"', $this->dbInfo["password"]) . ' ' . $baseCommand;
 			}
 
 			if ($jobs) {
@@ -145,7 +145,7 @@ class PostgreSQL implements IBackupable {
 			escapeshellcmd($this->dbInfo["port"])
 		);
 		if ($this->dbInfo["password"]) {
-			$baseCommand = sprintf('PGPASSWORD="%s"', escapeshellcmd($this->dbInfo["password"])) . ' ' . $baseCommand;
+			$baseCommand = sprintf('PGPASSWORD="%s"', $this->dbInfo["password"]) . ' ' . $baseCommand;
 		}
 
 		$command = $baseCommand;
