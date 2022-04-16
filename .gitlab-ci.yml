@@ -1,13 +1,28 @@
 stages:
   - test
   - build
-  - release
 
 variables:
   REPO_SERVER_HOST: ${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}
 
+static-analyse:
+  image: registry.git.jeyserver.com/jalno/phpstan:master
+  stage: test
+  variables:
+    GIT_ROOT_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
+    GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_NAME/packages/backuping
+  before_script:
+    - cd $GIT_ROOT_PATH
+    - rm -fr base && git clone --depth 1 ${REPO_SERVER_HOST}/jalno/base.git base
+    - cd ${GIT_ROOT_PATH} && cp -Rf base/* . && cd packages
+    - rm -fr PhpParser && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/PhpParser.git
+    - rm -fr phpmailer && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/phpmailer.git
+    - rm -fr cronjob && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/cronjob.git
+    - rm -fr finder && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/finder.git
+  script:
+    - phpstan analyse -c $GIT_CLONE_PATH/phpstan.neon $GIT_CLONE_PATH
 
-build app:
+build-app:
   image: docker:20.10
   services:
     - docker:20.10-dind
@@ -33,19 +48,28 @@ build app:
     - docker build --pull -f packages/backuping/Dockerfile -t $DOCKER_IMAGE .
     - docker push $DOCKER_IMAGE
 
-static analyse:
-  image: registry.git.jeyserver.com/jalno/phpstan:master
-  stage: test
+build-app-stable-dependencies:
+  image: docker:20.10
+  services:
+    - docker:20.10-dind
+  stage: build
   variables:
+    DOCKER_IMAGE: $CI_REGISTRY_IMAGE:stable-$CI_COMMIT_REF_SLUG
     GIT_ROOT_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
     GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_NAME/packages/backuping
   before_script:
+    - apk --no-cache add git
     - cd $GIT_ROOT_PATH
-    - rm -fr base && git clone --depth 1 ${REPO_SERVER_HOST}/jalno/base.git base
-    - cd ${GIT_ROOT_PATH} && cp -Rf base/* . && cd packages
-    - rm -fr PhpParser && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/PhpParser.git
-    - rm -fr phpmailer && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/phpmailer.git
-    - rm -fr cronjob && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/cronjob.git
-    - rm -fr finder && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/finder.git
+    - rm -fr base && git clone --depth 1 ${REPO_SERVER_HOST}/jalno/base.git base && git -C ./base/ checkout 6a49c318a657f0e52ac47009925bc4d5136ccd46
+    - cd ${GIT_ROOT_PATH} && cp -Rf base/* . && rm -fr base && cd packages
+    - rm -fr cronjob # remove the cronjob package from the static analyse stage
+    - rm -fr PhpParser && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/PhpParser.git && git -C ./PhpParser/ checkout 556e71cd8cc1ec99f78061e453e2192c7dccf154
+    - rm -fr phpmailer && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/phpmailer.git && git -C ./phpmailer checkout fdd5ad85e47b60fef08e4c19a9102e47b7618519
+    - rm -fr dockerize && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/dockerize.git && git -C ./dockerize checkout 9d53d047d5e448f5b6450e3e8e92a3d8eb28a686
+    - rm -fr finder && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/finder.git && git -C ./finder checkout 5d8f2037945a87252904f6be9a10a649db7686c6
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - phpstan analyse -c $GIT_CLONE_PATH/phpstan.neon $GIT_CLONE_PATH
+    - cd $GIT_ROOT_PATH
+    - cp packages/dockerize/.dockerignore .
+    - docker build --pull -f packages/backuping/Dockerfile -t $DOCKER_IMAGE .
+    - docker push $DOCKER_IMAGE
