@@ -157,7 +157,7 @@ class PostgreSQL implements IBackupable {
 			$command .= ' ' . implode(' ', $excludeDBs);
 
 		}
-		$file = $repo->file("-{$time}.pgsql");
+		$file = $repo->file("pg_dumpall-{$time}.pgsql");
 		$command .= ' ' . sprintf('--file=%s', escapeshellcmd($file->getPath()));
 		$command .= ' 2>&1';
 
@@ -174,11 +174,51 @@ class PostgreSQL implements IBackupable {
 		return $repo;
 	}
 
+	/**
+	 * @param \packages\base\IO\Directory $repo
+	 */
 	public function restore($repo, array $options = array()): void {
 		$log = Log::getInstance();
 		$log->info("start postgresql restore");
 
-		throw new Exception('currently postgresql restore not implemented!');
+		$this->validateDbInfo($options);
+
+		$jobs = $options['jobs'] ?? null;
+		if (null !== $jobs and (!is_numeric($jobs) or $jobs <= 0)) {
+			$log->error('the "jobs" should be numeric and bigger than zero');
+			throw new InvalidArgumentException('the "jobs" should be numeric and bigger than zero');
+		}
+
+		$baseCommand = sprintf(
+			'pg_restore --no-password --host=%s --username=%s --port=%s',
+			escapeshellcmd($this->dbInfo["host"]),
+			escapeshellcmd($this->dbInfo["username"]),
+			escapeshellcmd($this->dbInfo["port"])
+		);
+		if ($this->dbInfo["password"]) {
+			$baseCommand = sprintf('PGPASSWORD="%s"', escapeshellcmd($this->dbInfo["password"])) . ' ' . $baseCommand;
+		}
+		if ($jobs) {
+			$baseCommand .= ' ' . sprintf('--jobs=%s', $jobs);
+		}
+
+		foreach ($repo->items(false) as $item) {
+			$command = $baseCommand;
+
+			$log->info("start restore {$item->basename}");
+			$command .= ' ' . sprintf('--file=%s', escapeshellcmd($item->getPath()));
+			$command .= ' 2>&1';
+
+			$log->info("run command:", $command);
+			$output = null;
+			$status = null;
+			exec($command, $output, $status);
+			$log->reply("output:", $output, "status code:", $status);
+
+			if ($status != 0) {
+				throw new Exception(implode("\n", $output));
+			}
+		}
 	}
 
 	protected function ensureCommand(string $command): bool {
