@@ -40,7 +40,7 @@ class MongoDB implements IBackupable {
 		$command = "mongodump";
 
 		if ($this->mongoURI) {
-			$command .= " --uri=" . rawurlencode($this->mongoURI);
+			$command .= " --uri=" . $this->mongoURI;
 		} else {
 			$command .= " --host=" . escapeshellcmd($this->dbInfo["host"]);
 			$command .= " --port=" . escapeshellcmd($this->dbInfo["port"]);
