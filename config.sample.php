@@ -65,6 +65,41 @@
 		),
 
 		array(
+			'id' => 'my-postgresql-backup',
+			'type' => function (?array $options = null) {
+				return new \packages\backuping\backupables\PostgreSQL();
+			},
+			// 'cleanup_on_backup' => true,
+			// 'minimum_keeping_backups' => 5,
+			'options' => array(
+				'host' => 'localhost',
+				'port' => 5432,
+				'username' => 'postgres',
+				'password' => 'jeyserver',
+
+				'jobs' => null, // use this many parallel jobs to dump, if be null, ignored
+				'compress' => null, // compress level, if be null, ignored, else should in range 0-9
+
+				'only-format' => null, // c|d|t|p (custom, directory, tar, plain (default))
+				'only' => array( // backup only this database, if you pass only, the 'exclude' will ignored
+					// 'dvdrental', // backup jeyserver_develop completely
+					'dvdrental' => [
+						'pg_aggregate', // only take backup from pg_aggregate table
+					],
+				),
+
+				/*
+				'exclude' => array( // exclude some db's
+					'information_schema', // exclude 'information_schema' db completely
+					'mysql', // exclude 'information_schema' db completely
+					'performance_schema', // exclude 'information_schema' db completely
+					'my_db',
+				),
+				*/
+			),
+		),
+
+		array(
 			"id" => "my-mongodb-backup",
 			"type" => function (?array $options = null) {
 				return new \packages\backuping\backupables\MongoDB();

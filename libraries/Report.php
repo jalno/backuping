@@ -12,10 +12,6 @@ class Report {
 		"address" => null,
 		"name" => null,
 	);
-	private array $sender = array(
-		"mail" => null,
-		"name" => null,
-	);
 	private array $options = array(
 		// currently only support 'mail' or 'smtp'
 		"mailer" => "mail",
@@ -46,10 +42,6 @@ class Report {
 		}
 		$this->options["mailer"] = $mailer;
 		$this->options = array_merge($this->options, $options);
-	}
-	public function setSender(array $sender) {
-		$this->sender["mail"] = $sender["mail"];
-		$this->sender["name"] = $sender["name"];
 	}
 	public function addReceiver(array $receiver) {
 		$this->receivers[] = array(

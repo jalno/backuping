@@ -1,9 +1,14 @@
 parameters:
   level: 5
+  paths:
+    - .
   scanDirectories:
-    - ../
     - ../base
+    - ../cronjob
     - ../finder
     - ../phpmailer
+    - ../PhpParser
+  excludePaths:
+    - config.sample.php
   ignoreErrors:
     - "/(Class|Interface|Trait) .+ referenced with incorrect case/"
