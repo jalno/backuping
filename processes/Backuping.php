@@ -226,7 +226,7 @@ class Backuping extends Process {
 				$log->reply("done");
 
 			} catch (\Exception $e) {
-				$log->error("error! message:", $e->getMessage(), "class:", get_class($e), 'to string:', $s->__toString());
+				$log->error("error! message:", $e->getMessage(), "class:", get_class($e), 'to string:', $e->__toString());
 			}
 		}
 
