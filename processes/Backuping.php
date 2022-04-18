@@ -55,13 +55,14 @@ class Backuping extends Process {
 
 					if ($output instanceof IO\Directory\TMP) {
 						$log->info("the output directory is a temp directory, so clean it to free space");
+						$output->delete();
 						unset($output);
 					}
 
 					$fileForTransfer = $tmpZip;
+					$backupFileName .= ".zip";
 				}
-				$log->info("file for transfer size:", $this->getHumanReadableSize($fileForTransfer->size()));
-				$backupFileName .= ".zip";
+				$log->info("file for transfer:", $backupFileName, "size:", $this->getHumanReadableSize($fileForTransfer->size()));
 
 				$log->info("transfer file to destinations");
 				foreach ($destinations as $destination) {
@@ -91,13 +92,14 @@ class Backuping extends Process {
 							$log->reply("faild! copyTo return false!");
 						}
 					} catch (\Exception $e) {
-						$log->reply()->error("failed! message: '" . $e->getMessage() . "' class:" . get_class($e));
+						$log->reply()->error("failed! message: '" . $e->getMessage() . "' class:" . get_class($e), 'to string:', $e->__toString());
 					}
-					$log->info("remove ziped file ({$fileForTransfer->getPath()}) to free space");
 				}
+				$log->info("remove ziped file ({$fileForTransfer->getPath()}) to free space");
+				$fileForTransfer->delete();
 				unset($fileForTransfer);
 			} catch (\Exception $e) {
-				$log->error("error! message:", $e->getMessage(), "class:", get_class($e));
+				$log->error("error! message:", $e->getMessage(), "class:", get_class($e), 'to string:', $e->__toString());
 			}
 		}
 
@@ -224,7 +226,7 @@ class Backuping extends Process {
 				$log->reply("done");
 
 			} catch (\Exception $e) {
-				$log->error("error! message:", $e->getMessage(), "class:", get_class($e));
+				$log->error("error! message:", $e->getMessage(), "class:", get_class($e), 'to string:', $s->__toString());
 			}
 		}
 
@@ -305,13 +307,13 @@ class Backuping extends Process {
 							$file->delete();
 							$log->reply("done");
 						} catch (IO\Exception $e) {
-							$log->reply("failed");
+							$log->reply("failed, message:", $e->getMessage(), "class:", get_class($e), 'to string:', $e->__toString());
 						}
 					}
 				}
 
 			} catch (\Exception $e) {
-				$log->error("error! message:", $e->getMessage(), "class:", get_class($e));
+				$log->error("error! message:", $e->getMessage(), "class:", get_class($e), 'to string:', $e->__toString());
 			}
 		}
 
