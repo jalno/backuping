@@ -407,7 +407,9 @@ class Backuping extends Process {
 		}
 		$zip = new ZipArchive;
 		if (!$zip->open($zipFile->getPath(), ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
-			throw new Exception("packages.backuping.processes.Backuping.error_open_zip_archive");
+			$message = sprintf('can not open ZipArchive, message: [%s] in path: [%s]', $zip->getStatusString(), $zipFile->getPath());
+			unset($zip);
+			throw new Exception($message);
 		}
 		foreach ($files as $file) {
 			$relativePath = $file->getRelativePath($zipDir);
@@ -420,7 +422,9 @@ class Backuping extends Process {
 			}
 		}
 		if (!$zip->close()) {
-			throw new Exception("packages.backuping.processes.Backuping.error_close_zip_archive");
+			$message = sprintf('can not close ZipArchive, message: [%s] in path: [%s]', $zip->getStatusString(), $zipFile->getPath());
+			unset($zip);
+			throw new Exception($message);
 		}
 	}
 
