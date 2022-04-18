@@ -56,7 +56,6 @@ class Backuping extends Process {
 					if ($output instanceof IO\Directory\TMP) {
 						$log->info("the output directory is a temp directory, so clean it to free space");
 						$output->delete();
-						unset($output);
 					}
 
 					$fileForTransfer = $tmpZip;
@@ -97,7 +96,6 @@ class Backuping extends Process {
 				}
 				$log->info("remove ziped file ({$fileForTransfer->getPath()}) to free space");
 				$fileForTransfer->delete();
-				unset($fileForTransfer);
 			} catch (\Exception $e) {
 				$log->error("error! message:", $e->getMessage(), "class:", get_class($e), 'to string:', $e->__toString());
 			}
