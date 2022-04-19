@@ -6,13 +6,16 @@ use \InvalidArgumentException;
 use packages\base\{Cli, Exception, Log as BaseLog, IO, Options, Date, Process, Response};
 use packages\backuping\{Backup, IO\Directory\FilterableDirectory, Log, Report};
 
+/**
+ * @phpstan-type GeneralArgs array{'verbose'?:bool,'report'?:bool,'sources'?:string|string[],'destinations'?:string|string[]}
+ */
 class Backuping extends Process {
 
 	protected bool $verbose = false;
 	protected ?Backup $backup = null;
 
 	/**
-	 * @param array{"verbose"?:bool,"report"?:bool} $data
+	 * @param GeneralArgs $data
 	 */
 	public function backup(array $data) {
 		$this->loadConfig($data);
@@ -79,10 +82,14 @@ class Backuping extends Process {
 							$log->info("the backup is OK, so cleanup on backup?");
 							if ($source->shouldCleanupOnBackup()) {
 								$log->reply("yes");
-								$this->cleanup(array(
+								$cleanupData = array(
 									"sources" => [$sourceID],
 									"report" => false, // send all report at the end of backup instead of send chunk report
-								));
+								);
+								if (isset($data['destinations'])) {
+									$cleanupData['destinations'] = $data['destinations'];
+								}
+								$this->cleanup($cleanupData);
 							} else {
 								$log->reply("no!");
 							}
@@ -109,7 +116,7 @@ class Backuping extends Process {
 	}
 
 	/**
-	 * @param array{"verbose"?:bool,"report"?:bool,"sources"?:array<string>,"destination"?:array<string>,"backup-name"?:string,"restore-latest-backup"?:bool} $data
+	 * @param array{"verbose"?:bool,"report"?:bool,"sources"?:string|string[],"destination"?:string|string[],"backup-name"?:string,"restore-latest-backup"?:bool} $data
 	 */
 	public function restore(array $data) {
 		$this->loadConfig($data);
@@ -236,7 +243,7 @@ class Backuping extends Process {
 	}
 
 	/**
-	 * @param array{"verbose"?:bool,"report"?:bool,"sources"?:array<string>,"destinations"?:array<string>} $data
+	 * @param GeneralArgs $data
 	 */
 	public function cleanup(array $data) {
 		$this->loadConfig($data);
