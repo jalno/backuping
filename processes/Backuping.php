@@ -4,7 +4,7 @@ namespace packages\backuping\processes;
 use \ZipArchive;
 use \InvalidArgumentException;
 use packages\base\{Cli, Exception, Log as BaseLog, IO, Options, Date, Process, Response};
-use packages\backuping\{Backup, Log, Report};
+use packages\backuping\{Backup, IO\Directory\FilterableDirectory, Log, Report};
 
 class Backuping extends Process {
 
@@ -399,8 +399,11 @@ class Backuping extends Process {
 	}
 
 	protected function zipDirectory(IO\Directory\Local $zipDir, IO\File\Local $zipFile): void {
+		$log = Log::getInstance();
+
 		$files = $zipDir->files(true);
 		if (empty($files)) {
+			$log->info("there is not file in directory [{$zipDir->getPath()}] to compress, make empty zip");
 			// this is empty zip file!
 			$zipFile->write(base64_decode("UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=="));
 			return;
@@ -408,21 +411,26 @@ class Backuping extends Process {
 		$zip = new ZipArchive;
 		if (!$zip->open($zipFile->getPath(), ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
 			$message = sprintf('can not open ZipArchive, message: [%s] in path: [%s]', $zip->getStatusString(), $zipFile->getPath());
+			$log->error($message);
 			unset($zip);
 			throw new Exception($message);
 		}
 		foreach ($files as $file) {
+			$log->info("check file [{$file->getPath()}] to add in archive");
+
 			$relativePath = $file->getRelativePath($zipDir);
+			$log->reply("relative path is [{$relativePath}]");
 			$zip->addFile($file->getPath(), $relativePath);
 
 			/** prevent compress already compressed files! */
 			$ext = $file->getExtension();
-			if (in_array($ext, array("zip", "gz"))) {
+			if (in_array($ext, array('zip', 'gz', 'tar.gz', 'zst', 'tar.zst'))) {
 				$zip->setCompressionName($relativePath, ZipArchive::CM_STORE);
 			}
 		}
 		if (!$zip->close()) {
 			$message = sprintf('can not close ZipArchive, message: [%s] in path: [%s]', $zip->getStatusString(), $zipFile->getPath());
+			$log->error($message);
 			unset($zip);
 			throw new Exception($message);
 		}
