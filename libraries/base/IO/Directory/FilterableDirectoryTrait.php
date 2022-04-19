@@ -116,7 +116,7 @@ trait FilterableDirectoryTrait {
 		return $this->node->getPath();
 	}
 
-	public function getDirectory() {
+	public function getDirectory(): Directory {
 		return $this->node->getDirectory();
 	}
 

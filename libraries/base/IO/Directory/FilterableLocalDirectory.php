@@ -37,6 +37,10 @@ class FilterableLocalDirectory extends Directory\Local implements \Serializable 
 		return $this->node->directory($name);
 	}
 
+	public function getDirectory(): Directory\Local {
+		return $this->node->getDirectory();
+	}
+
 	public function move(Directory $dest): bool {
 		// throw new Exception(sprintf('%s does not support\'s %s functionality, it is readonly!', __CLASS__, __FUNCTION__));
 		return $this->node->move($dest);
