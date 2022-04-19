@@ -1,16 +1,19 @@
 <?php
 namespace packages\backuping;
 
+use packages\base\IO\Node;
+
+/**
+ * @phpstan-type MixedOptions array<string,mixed>
+ */
 interface IBackupable {
 	/**
-	 * @param array $options
-	 * @return \packages\base\IO\File|\packages\base\IO\Directory
+	 * @param MixedOptions $options
 	 */
-	public function backup(array $options = array());
+	public function backup(array $options = array()): Node;
 
 	/**
-	 * @param \packages\base\IO\File|\packages\base\IO\Directory $backup
-	 * @param array $options
+	 * @param MixedOptions $options
 	 */
-	public function restore($backup, array $options = array()): void;
+	public function restore(Node $backup, array $options = array()): void;
 }

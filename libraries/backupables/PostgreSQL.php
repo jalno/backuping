@@ -2,7 +2,7 @@
 namespace packages\backuping\backupables;
 
 use packages\backuping\Exceptions\{InvalidArgumentException, RuntimeException};
-use packages\base\{Date, Exception, IO, DB\MysqliDb};
+use packages\base\{Date, Exception, IO, DB\MysqliDb, IO\Node};
 use packages\backuping\{IBackupable, Log};
 
 class PostgreSQL implements IBackupable {
@@ -18,7 +18,7 @@ class PostgreSQL implements IBackupable {
 		"password" => null,
 	);
 
-	public function backup(array $options = array()) {
+	public function backup(array $options = array()): Node {
 		$log = Log::getInstance();
 		$log->info("start postgresql backup");
 
@@ -174,12 +174,14 @@ class PostgreSQL implements IBackupable {
 		return $repo;
 	}
 
-	/**
-	 * @param \packages\base\IO\Directory $repo
-	 */
-	public function restore($repo, array $options = array()): void {
+	public function restore(Node $repo, array $options = array()): void {
 		$log = Log::getInstance();
 		$log->info("start postgresql restore");
+
+		if (!($repo instanceof IO\Directory)) {
+			$log->error("the given repo must be a directory for this backupable! (" . __CLASS__ . ")");
+			throw new RuntimeException("the given repo must be a directory for this backupable! (" . __CLASS__ . ")");
+		}
 
 		$this->validateDbInfo($options);
 

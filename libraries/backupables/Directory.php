@@ -1,14 +1,14 @@
 <?php
 namespace packages\backuping\backupables;
 
-use \InvalidArgumentException;
-use packages\base\{IO\File, IO};
-use packages\backuping\{IBackupable, Log};
+use packages\backuping\Exceptions\{InvalidArgumentException, RuntimeException};
+use packages\base\{IO\File, IO, IO\Node};
+use packages\backuping\{IBackupable, IO\Directory\FilterableLocalDirectory, Log};
 use packages\finder\Finder;
 
 class Directory implements IBackupable {
 
-	public function backup(array $options = array()) {
+	public function backup(array $options = array()): Node {
 		$log = Log::getInstance();
 		$log->info("start directory backup");
 
@@ -26,6 +26,11 @@ class Directory implements IBackupable {
 			throw new InvalidArgumentException("the given 'directory' is not valid! it should be instance of:" . IO\Directory::class .  " (" . gettype($directory) . ") given!");
 		}
 
+		if (!($directory instanceof IO\Directory\Local)) {
+			$log->error("currently, can backup local directory: " . IO\Directory\Local::class . " (" . gettype($directory) . ") given!");
+			throw new InvalidArgumentException("currently, can backup local directory: " . IO\Directory\Local::class .  " (" . gettype($directory) . ") given!");
+		}
+
 		$excludes = $options["exclude"] ?? [];
 		if (!is_array($excludes)) {
 			$log->error("the 'exclude' index should be array of string (literal string or regex)");
@@ -39,36 +44,14 @@ class Directory implements IBackupable {
 		}
 		$log->info("excludes:", $excludes);
 
-		$log->info("check directory...");
-		$result = new IO\Directory\TMP();
-		if (!$result->exists()) {
-			$result->make(true);
-		}
-
-		$finder = (new Finder)->in($directory->getPath());
-		$finder->notPath($excludes);
-
-		foreach ($finder as $splFile) {
-			$item = $splFile->getJalnoIO();
-			if (!$item) {
-				$log->warn('The item:', $splFile->getPathName(), 'is not file or directory, so skip');
-				continue;
-			}
-			$log->info("add item:", $item->getPath());
-			$relativePath = $item->getRelativePath($directory);
-			if ($item instanceof IO\File) {
-				$file = $result->file($relativePath);
-				$fileDir = $file->getDirectory();
-				if (!$fileDir->exists()) {
-					$fileDir->make(true);
-				}
-				$item->copyTo($file);
-			}
+		$result = new FilterableLocalDirectory($directory);
+		if ($excludes) {
+			$result->filterNotPaths($excludes);
 		}
 
 		return $result;
 	}
-	public function restore($repo, array $options = array()): void {
+	public function restore(Node $repo, array $options = array()): void {
 		$log = Log::getInstance();
 		
 		$directory = $options["directory"] ?? null;
@@ -83,6 +66,10 @@ class Directory implements IBackupable {
 		if (!($directory instanceof IO\Directory)) {
 			$log->error("the given 'directory' is not valid! it should be instance of:" . IO\Directory::class);
 			throw new InvalidArgumentException("the given 'directory' is not valid! it should be instance of:" . IO\Directory::class);
+		}
+		if (!($repo instanceof IO\Directory)) {
+			$log->error("the given repo must be a directory for this backupable! (" . __CLASS__ . ")");
+			throw new RuntimeException("the given repo must be a directory for this backupable! (" . __CLASS__ . ")");
 		}
 
 		foreach ($repo->items(false) as $item) {

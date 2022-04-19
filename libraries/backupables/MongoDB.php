@@ -2,7 +2,7 @@
 namespace packages\backuping\backupables;
 
 use InvalidArgumentException;
-use packages\base\{Date, Exception, IO, DB\MysqliDb};
+use packages\base\{Date, Exception, IO, DB\MysqliDb, IO\Node};
 use packages\backuping\{IBackupable, Log};
 
 class MongoDB implements IBackupable {
@@ -17,7 +17,7 @@ class MongoDB implements IBackupable {
 		"password" => null,
 	);
 
-	public function backup(array $options = array()) {
+	public function backup(array $options = array()): Node {
 		$log = Log::getInstance();
 		$log->info("start mongoDB backup");
 
@@ -88,10 +88,9 @@ class MongoDB implements IBackupable {
 	}
 
 	/**
-	 * @param \packages\base\IO\File\Local|\packages\base\IO\Directory\Local $repo
 	 * @param array $options
 	 */
-	public function restore($repo, array $options = array()): void {
+	public function restore(Node $repo, array $options = array()): void {
 		$this->validateDatabaseInfo($options);
 
 		$log = Log::getInstance();

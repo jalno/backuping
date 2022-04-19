@@ -1,8 +1,8 @@
 <?php
 namespace packages\backuping\backupables;
 
-use \InvalidArgumentException;
-use packages\base\{Date, Exception, IO, DB\MysqliDb};
+use packages\backuping\Exceptions\{InvalidArgumentException, RuntimeException};
+use packages\base\{Date, Exception, IO, DB\MysqliDb, IO\Node};
 use packages\backuping\{IBackupable, Log};
 
 class MySQL implements IBackupable {
@@ -16,7 +16,7 @@ class MySQL implements IBackupable {
 	);
 	protected ?array $tables = null;
 
-	public function backup(array $options = array()) {
+	public function backup(array $options = array()): Node {
 		$log = Log::getInstance();
 		$log->info("start mysql backup");
 
@@ -179,10 +179,15 @@ class MySQL implements IBackupable {
 		return $repo;
 	}
 
-	public function restore($repo, array $options = array()): void {
+	public function restore(Node $repo, array $options = array()): void {
 		$this->getMysqliDB($options);
 		$log = Log::getInstance();
 		$log->info("start mysql restore");
+
+		if (!($repo instanceof IO\Directory)) {
+			$log->error("the given repo must be a directory for this backupable! (" . __CLASS__ . ")");
+			throw new RuntimeException("the given repo must be a directory for this backupable! (" . __CLASS__ . ")");
+		}
 
 		$log->info("check has gzip?");
 		$hasGzip = $this->ensureCommand("gzip");
