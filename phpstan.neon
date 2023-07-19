@@ -4,7 +4,6 @@ parameters:
     - .
   scanDirectories:
     - ../base
-    - ../cronjob
     - ../finder
     - ../phpmailer
     - ../PhpParser

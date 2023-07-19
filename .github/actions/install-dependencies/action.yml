@@ -55,14 +55,6 @@ runs:
         path: base/packages/PhpParser
         ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && '556e71cd8cc1ec99f78061e453e2192c7dccf154' || '' }}
 
-    - name: Checkout jalno/cronjob
-      uses: actions/checkout@v3
-      if: (inputs.CACHE_PACKAGES != 'true' || steps.cache-packages-restore.outputs.cache-hit != 'true')
-      with:
-        repository: jalno/cronjob
-        path: base/packages/cronjob
-        ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && '7089d2bbde2e2400556c6d3bf8554d069ff12dfc' || '' }}
-
     - name: Checkout hosni/s3
       uses: actions/checkout@v3
       if: (inputs.CACHE_PACKAGES != 'true' || steps.cache-packages-restore.outputs.cache-hit != 'true')
