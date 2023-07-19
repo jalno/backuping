@@ -1,0 +1,122 @@
+name: 'Install Dependencies'
+description: 'Install Jalno Dependencies For Backuping'
+
+inputs:
+  GITLAB_PRIVATE_KEY:
+    description: 'git.jeyserver.com private token'
+    required: true
+  GITLAB_KNOWN_HOST:
+    description: 'git.jeyserver.com known host'
+    required: true
+  STABLE_DEPENDENCIES:
+    description: 'lock the installer to latest tested dependencies'
+    required: false
+    default: 'true' 
+  CACHE_PACKAGES:
+    description: 'cache Jalno dependencies in packages directory, except base and backuping package'
+    required: false
+    default: 'true'
+  CACHE_PACKAGES_KEY_DATE_FORMAT:
+    description: 'a format to give date command to generate key for cache'
+    required: false
+    default: '+%Y%m%d'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout jalno/base
+      uses: actions/checkout@v3
+      with:
+        repository: jalno/base
+        path: base
+        ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && 'ee33f396c4cc1c1d5c57b009b99bb93ad762114d' || '' }}
+
+    - name: Get Date for Cache Key
+      id: get-cache-key
+      if: inputs.CACHE_PACKAGES == 'true'
+      run: |
+        echo "date=$(/bin/date -u "${{ inputs.CACHE_PACKAGES_KEY_DATE_FORMAT }}")" >> $GITHUB_OUTPUT
+        echo $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Restore cached Jalno Packages
+      id: cache-packages-restore
+      if: inputs.CACHE_PACKAGES == 'true'
+      uses: actions/cache/restore@v3
+      with:
+        path: base/packages
+        key: ${{ runner.os }}-jalno-packages-${{ steps.get-cache-key.outputs.date }}
+
+    - name: Checkout jalno/PhpParser
+      uses: actions/checkout@v3
+      if: (inputs.CACHE_PACKAGES != 'true' || steps.cache-packages-restore.outputs.cache-hit != 'true')
+      with:
+        repository: jalno/PhpParser
+        path: base/packages/PhpParser
+        ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && '556e71cd8cc1ec99f78061e453e2192c7dccf154' || '' }}
+
+    - name: Checkout jalno/cronjob
+      uses: actions/checkout@v3
+      if: (inputs.CACHE_PACKAGES != 'true' || steps.cache-packages-restore.outputs.cache-hit != 'true')
+      with:
+        repository: jalno/cronjob
+        path: base/packages/cronjob
+        ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && '7089d2bbde2e2400556c6d3bf8554d069ff12dfc' || '' }}
+
+    - name: Checkout hosni/s3
+      uses: actions/checkout@v3
+      if: (inputs.CACHE_PACKAGES != 'true' || steps.cache-packages-restore.outputs.cache-hit != 'true')
+      with:
+        repository: hosni/s3
+        path: base/packages/s3
+        ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && 'a6f00bfd0cd57caaf4c4a91457454a95af3f7925' || '' }}
+        github-server-url: https://git.jeyserver.com
+        ssh-known-hosts: ${{ inputs.GITLAB_KNOWN_HOST }}
+        ssh-key: ${{ inputs.GITLAB_PRIVATE_KEY }}
+
+    - name: Checkout hosni/s3_api
+      uses: actions/checkout@v3
+      if: (inputs.CACHE_PACKAGES != 'true' || steps.cache-packages-restore.outputs.cache-hit != 'true')
+      with:
+        repository: hosni/s3_api
+        path: base/packages/s3_api
+        ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && '5f24079d5d18bbe70eccf52d6c458433d0241424' || '' }}
+        github-server-url: https://git.jeyserver.com
+        ssh-known-hosts: ${{ inputs.GITLAB_KNOWN_HOST }}
+        ssh-key: ${{ inputs.GITLAB_PRIVATE_KEY }}
+
+    - name: Checkout hosni/phpmailer
+      uses: actions/checkout@v3
+      if: (inputs.CACHE_PACKAGES != 'true' || steps.cache-packages-restore.outputs.cache-hit != 'true')
+      with:
+        repository: hosni/phpmailer
+        path: base/packages/phpmailer
+        ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && 'fdd5ad85e47b60fef08e4c19a9102e47b7618519' || '' }}
+        github-server-url: https://git.jeyserver.com
+        ssh-known-hosts: ${{ inputs.GITLAB_KNOWN_HOST }}
+        ssh-key: ${{ inputs.GITLAB_PRIVATE_KEY }}
+
+    - name: Checkout hosni/finder
+      uses: actions/checkout@v3
+      if: (inputs.CACHE_PACKAGES != 'true' || steps.cache-packages-restore.outputs.cache-hit != 'true')
+      with:
+        repository: hosni/finder
+        path: base/packages/finder
+        ref: ${{ inputs.STABLE_DEPENDENCIES == 'true' && '5d8f2037945a87252904f6be9a10a649db7686c6' || '' }}
+        github-server-url: https://git.jeyserver.com
+        ssh-known-hosts: ${{ inputs.GITLAB_KNOWN_HOST }}
+        ssh-key: ${{ inputs.GITLAB_PRIVATE_KEY }}
+
+    - name: Cache Jalno Packages
+      id: cache-packages
+      if: inputs.CACHE_PACKAGES == 'true'
+      uses: actions/cache@v3
+      with:
+        path: base/packages
+        key: ${{ runner.os }}-jalno-packages-${{ steps.get-cache-key.outputs.date }}
+
+    - name: Checkout jalno/backuping
+      uses: actions/checkout@v3
+      with:
+        path: base/packages/backuping
+
