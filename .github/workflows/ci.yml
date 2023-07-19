@@ -47,6 +47,12 @@ jobs:
           GITLAB_PRIVATE_KEY: ${{ secrets.GITLAB_PRIVATE_KEY }}
           GITLAB_KNOWN_HOST: ${{ env.GITLAB_KNOWN_HOST }}
 
+      - name: Checkout jalno/cronjob
+        uses: actions/checkout@v3
+        with:
+          repository: jalno/cronjob
+          path: base/packages/cronjob
+
       - run: ls -lh base
       - run: ls -lh base/packages
 
@@ -88,9 +94,7 @@ jobs:
 
       - run: cp base/packages/dockerize/.dockerignore base/.
 
-      - run: pwd
-      - run: ls -lh .
-      - run: ls -lh base
+      - run: rm -fr base/packages/cronjob
       - run: ls -lh base/packages
 
       - name: Log into registry ghcr.io

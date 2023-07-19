@@ -3,12 +3,8 @@ parameters:
   paths:
     - .
   scanDirectories:
-    - ../base
-    - ../finder
-    - ../phpmailer
-    - ../PhpParser
+    - ..
   excludePaths:
     - config.sample.php
-    - listeners/Cronjob.php
   ignoreErrors:
     - "/(Class|Interface|Trait) .+ referenced with incorrect case/"
