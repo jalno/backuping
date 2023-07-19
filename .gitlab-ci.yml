@@ -13,7 +13,7 @@ static-analyse:
     GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_NAME/packages/backuping
   before_script:
     - cd $GIT_ROOT_PATH
-    - rm -fr base && git clone --depth 1 ${REPO_SERVER_HOST}/jalno/base.git base
+    - rm -fr base && git clone --depth 1 https://github.com/jalno/base.git base
     - cd ${GIT_ROOT_PATH} && cp -Rf base/* . && cd packages
     - rm -fr PhpParser && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/PhpParser.git
     - rm -fr phpmailer && git clone --depth 1 ${REPO_SERVER_HOST}/hosni/phpmailer.git
@@ -34,7 +34,7 @@ build-app:
   before_script:
     - apk --no-cache add git
     - cd $GIT_ROOT_PATH
-    - rm -fr base && git clone --depth 1 ${REPO_SERVER_HOST}/jalno/base.git base
+    - rm -fr base && git clone --depth 1 https://github.com/jalno/base.git base
     - cd ${GIT_ROOT_PATH} && cp -Rf base/* . && rm -fr base && cd packages
     - rm -fr cronjob # remove the cronjob package from the static analyse stage
     - rm -fr PhpParser && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/PhpParser.git
@@ -62,7 +62,7 @@ build-app-stable-dependencies:
   before_script:
     - apk --no-cache add git
     - cd $GIT_ROOT_PATH
-    - rm -fr base && git clone --depth 1 ${REPO_SERVER_HOST}/jalno/base.git base && git -C ./base/ checkout 6a49c318a657f0e52ac47009925bc4d5136ccd46
+    - rm -fr base && git clone --depth 1 https://github.com/jalno/base.git base && git -C ./base/ checkout ee33f396c4cc1c1d5c57b009b99bb93ad762114d
     - cd ${GIT_ROOT_PATH} && cp -Rf base/* . && rm -fr base && cd packages
     - rm -fr cronjob # remove the cronjob package from the static analyse stage
     - rm -fr PhpParser && git clone --depth 1 ${REPO_SERVER_HOST}/yeganemehr/PhpParser.git && git -C ./PhpParser/ checkout 556e71cd8cc1ec99f78061e453e2192c7dccf154
