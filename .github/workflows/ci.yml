@@ -71,14 +71,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v3
         with:
-          path: base/packages/araddoc
+          path: base/packages/backuping
 
       - name: Install Dependencies
-        uses: ./base/packages/araddoc/.github/actions/install-dependencies
+        uses: ./base/packages/backuping/.github/actions/install-dependencies
         with:
           GITLAB_KNOWN_HOST: ${{ env.GITLAB_KNOWN_HOST }}
           GITLAB_PRIVATE_KEY: ${{ secrets.GITLAB_PRIVATE_KEY }}
-          ARADBRANDING_PAT: ${{ secrets.ARADBRANDING_PAT }}
           STABLE_DEPENDENCIES: 'true'
 
       - name: Checkout jalno/node_webpack
