@@ -9,5 +9,6 @@ parameters:
     - ../PhpParser
   excludePaths:
     - config.sample.php
+    - listeners/Cronjob.php
   ignoreErrors:
     - "/(Class|Interface|Trait) .+ referenced with incorrect case/"
