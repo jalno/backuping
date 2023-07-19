@@ -80,12 +80,6 @@ jobs:
           GITLAB_PRIVATE_KEY: ${{ secrets.GITLAB_PRIVATE_KEY }}
           STABLE_DEPENDENCIES: 'true'
 
-      - name: Checkout jalno/node_webpack
-        uses: actions/checkout@v3
-        with:
-          repository: jalno/node_webpack
-          path: base/packages/node_webpack
-
       - name: Checkout jalno/dockerize
         uses: actions/checkout@v3
         with:
