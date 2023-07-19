@@ -295,7 +295,7 @@ class Backuping extends Process {
 
 					$shouldBeDeleted = array();
 					foreach ($backupFiles as $backupAt => $file) {
-						if ((Date::time() - $backupAt > $lifetime * 86400) and count($shouldBeDeleted) <= $backupFilesCount - $minimumBackups) {
+						if ((Date::time() - intval($backupAt) > $lifetime * 86400) and count($shouldBeDeleted) <= $backupFilesCount - $minimumBackups) {
 							$shouldBeDeleted[] = $file;
 						}
 					}
