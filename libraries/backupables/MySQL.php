@@ -49,11 +49,24 @@ class MySQL implements IBackupable {
 			$log->reply("done:", $useGzip);
 		}
 
+		$mysqldumpRawOptions = $options["backup_raw_options"] ?? [];
+		$mysqldumpRawOptionsParsed = '';
+		if (!is_array($mysqldumpRawOptions)) {
+			$log->error("the 'backup_raw_options' option should be array! (" . gettype($mysqldumpRawOptions) . ") given!");
+			throw new \InvalidArgumentException("the 'include' option should be array! (" . gettype($mysqldumpRawOptions) . ") given!");
+		} elseif ($mysqldumpRawOptions) {
+			$mysqldumpRawOptionsParsed = $this->generateRawOptions($mysqldumpRawOptions);
+		}
+
 		$connection = $this->getMysqliDB($options);
+
 
 		$time = Date::time();
 
 		$baseCommand = "mysqldump";
+		if ($mysqldumpRawOptionsParsed) {
+			$baseCommand .= ' ' . $mysqldumpRawOptionsParsed;
+		}
 		$baseCommand .= " --host=" . escapeshellcmd($this->dbInfo["host"]);
 		$baseCommand .= " --port=" . escapeshellcmd($this->dbInfo["port"]);
 		$baseCommand .= " --user=" . escapeshellcmd($this->dbInfo["username"]);
@@ -303,6 +316,26 @@ class MySQL implements IBackupable {
 	}
 	protected function ensureCommand(string $command): bool {
 		return boolval(shell_exec("command -v {$command}"));
+	}
+	protected function generateRawOptions(array $input): string {
+		$output = '';
+		foreach ($input as $key => $value) {
+			if ($output) {
+				$output .= ' ';
+			}
+			if (is_int($key)) {
+				$output .= $value;
+			} else {
+				if (substr($key, 0, 2) != '--') {
+					$key = '--' . $key;
+				}
+				if (is_bool($value)) {
+					$value = $value ? 'TRUE' : 'FALSE';
+				}
+				$output .= $key . '=' . $value;
+			}
+		}
+		return $output;
 	}
 	protected function getIncludes(array $input): array {
 		return $this->validateIncludeExclude($input, "include");

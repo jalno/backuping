@@ -64,6 +64,12 @@
 						"my_test_table_1_to_exclude"
 					),
 				),
+				"backup_raw_options" => array( // we support raw option to give mysqldump, you can use one of these simples
+					'--single-transaction=TRUE',
+					'--single-transaction' => 'TRUE',
+					'--single-transaction' => true,
+					'single-transaction' => true,
+				),
 			),
 		),
 
