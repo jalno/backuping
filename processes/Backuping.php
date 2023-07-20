@@ -71,7 +71,9 @@ class Backuping extends Process {
 					$retries = $source->getTransferRetries();
 					$log->debug("transfer retry is {$retries}");
 					$log->info("try transfer backup of source: ({$sourceID}) to destination: ({$destination->getID()})");
+					$successful = false;
 					do {
+						$log->debug("transfer retry is {$retries}");
 						try {
 							$directory = $destination->getDirectory();
 							if (!$directory->exists()) {
@@ -80,6 +82,7 @@ class Backuping extends Process {
 							$destFile = $directory->file($backupFileName);
 
 							if ($fileForTransfer->copyTo($destFile)) {
+								$successful = true;
 								$log->reply("done!");
 
 								$log->info("the backup is OK, so cleanup on backup?");
@@ -102,7 +105,7 @@ class Backuping extends Process {
 						} catch (\Exception $e) {
 							$log->reply()->error("failed! message: '" . $e->getMessage() . "' class:" . get_class($e), 'to string:', $e->__toString());
 						}
-					} while ($retries-- > 0);
+					} while (!$successful and $retries-- > 0);
 				}
 				$log->info("remove ziped file ({$fileForTransfer->getPath()}) to free space");
 				$fileForTransfer->delete();
