@@ -69,7 +69,7 @@ class Backuping extends Process {
 				$log->info("transfer file to destinations");
 				foreach ($destinations as $destination) {
 					$retries = $source->getTransferRetries();
-					$log->debug("transfer retry is ${$retries}");
+					$log->debug("transfer retry is {$retries}");
 					$log->info("try transfer backup of source: ({$sourceID}) to destination: ({$destination->getID()})");
 					do {
 						try {
