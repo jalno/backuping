@@ -429,7 +429,7 @@ class Backuping extends Process {
 			throw new Exception($message);
 		}
 		foreach ($files as $file) {
-			$log->info("check file [{$file->getPath()}] to add in archive");
+			$log->debug("check file [{$file->getPath()}] to add in archive");
 
 			$relativePath = $file->getRelativePath($zipDir);
 			$log->reply("relative path is [{$relativePath}]");
