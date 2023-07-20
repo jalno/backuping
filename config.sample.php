@@ -11,6 +11,9 @@
 		// you can override this for each source by passing 'minimum_keeping_backups' in source array
 		// this should be zero or bigger than it!
 		"minimum_keeping_source_backups" => 1,
+
+		// how many time we should retry to transfer backup to each dest when we faild on the first time?
+		"transfer_source_backup_retries" => 0,
 	),
 	"sources" => array(
 		array(

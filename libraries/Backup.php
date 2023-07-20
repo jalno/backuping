@@ -59,6 +59,18 @@ class Backup {
 					$log->info("the 'minimum_keeping_source_backups' is set to:", $globalOptions["minimum_keeping_source_backups"]);
 					Source::setGlobalMinKeepingBackupsCount($globalOptions["minimum_keeping_source_backups"]);
 				}
+
+				if (isset($globalOptions["transfer_source_backup_retries"])) {
+					if (!is_numeric($globalOptions["transfer_source_backup_retries"])) {
+						$log->reply()->error("the 'transfer_source_backup_retries' is not numeric!");
+						throw new Error("packages.backuping.Backup.transfer_source_backup_retries.is_not_numeric");
+					} elseif ($globalOptions["transfer_source_backup_retries"] < 0) {
+						$log->reply()->error("the 'transfer_source_backup_retries' should zero or higher!");
+						throw new Error("packages.backuping.Backup.transfer_source_backup_retries.is_smaller_than_zero");
+					}
+					$log->info("the 'transfer_source_backup_retries' is set to:", $globalOptions["transfer_source_backup_retries"]);
+					Source::setTransferRetries($globalOptions["transfer_source_backup_retries"]);
+				}
 			}
 
 			$log->info("try prepare sources...");

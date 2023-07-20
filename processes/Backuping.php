@@ -68,38 +68,41 @@ class Backuping extends Process {
 
 				$log->info("transfer file to destinations");
 				foreach ($destinations as $destination) {
+					$retries = $source->getTransferRetries();
+					$log->debug("transfer retry is ${$retries}");
 					$log->info("try transfer backup of source: ({$sourceID}) to destination: ({$destination->getID()})");
-					try {
-						$directory = $destination->getDirectory();
-						if (!$directory->exists()) {
-							$directory->make(true);
-						}
-						$destFile = $directory->file($backupFileName);
-						
-						if ($fileForTransfer->copyTo($destFile)) {
-							$log->reply("done!");
-
-							$log->info("the backup is OK, so cleanup on backup?");
-							if ($source->shouldCleanupOnBackup()) {
-								$log->reply("yes");
-								$cleanupData = array(
-									"sources" => [$sourceID],
-									"report" => false, // send all report at the end of backup instead of send chunk report
-								);
-								if (isset($data['destinations'])) {
-									$cleanupData['destinations'] = $data['destinations'];
-								}
-								$this->cleanup($cleanupData);
-							} else {
-								$log->reply("no!");
+					do {
+						try {
+							$directory = $destination->getDirectory();
+							if (!$directory->exists()) {
+								$directory->make(true);
 							}
+							$destFile = $directory->file($backupFileName);
 
-						} else {
-							$log->reply("faild! copyTo return false!");
+							if ($fileForTransfer->copyTo($destFile)) {
+								$log->reply("done!");
+
+								$log->info("the backup is OK, so cleanup on backup?");
+								if ($source->shouldCleanupOnBackup()) {
+									$log->reply("yes");
+									$cleanupData = array(
+										"sources" => [$sourceID],
+										"report" => false, // send all report at the end of backup instead of send chunk report
+									);
+									if (isset($data['destinations'])) {
+										$cleanupData['destinations'] = $data['destinations'];
+									}
+									$this->cleanup($cleanupData);
+								} else {
+									$log->reply("no!");
+								}
+							} else {
+								$log->reply("faild! copyTo return false!");
+							}
+						} catch (\Exception $e) {
+							$log->reply()->error("failed! message: '" . $e->getMessage() . "' class:" . get_class($e), 'to string:', $e->__toString());
 						}
-					} catch (\Exception $e) {
-						$log->reply()->error("failed! message: '" . $e->getMessage() . "' class:" . get_class($e), 'to string:', $e->__toString());
-					}
+					} while ($retries-- > 0);
 				}
 				$log->info("remove ziped file ({$fileForTransfer->getPath()}) to free space");
 				$fileForTransfer->delete();

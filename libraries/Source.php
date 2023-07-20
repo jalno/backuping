@@ -86,10 +86,18 @@ class Source {
 		self::$globalMinKeepingBackup = $min;
 	}
 
+	public static function setTransferRetries(int $val): void {
+		if ($val < 0) {
+			throw new InvalidArgumentException("the global minimum keeping backup should zero or bigger!");
+		}
+		self::$transferRetries = $val;
+	}
+
 	public static function getGlobalMinKeepingBackupsCount(): int {
 		return self::$globalMinKeepingBackup;
 	}
 
+	protected static int $transferRetries = 0;
 	protected static int $globalMinKeepingBackup = 0;
 	protected static bool $globalCleanupOnBackup = false;
 
@@ -136,6 +144,10 @@ class Source {
 			return self::getGlobalMinKeepingBackupsCount();
 		}
 		return $this->minKeepingBackup;
+	}
+
+	public function getTransferRetries(): int {
+		return self::$transferRetries;
 	}
 
 	public function getOptions(): array {
