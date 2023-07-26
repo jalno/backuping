@@ -148,7 +148,7 @@ class Backup {
 	/**
 	 * @return array{subject?:string,sender?:array{type?:string,options?:array{host:string,port:int}},receivers?:string[]}
 	 */
-	public function getReportInfo(bool $reload = false): ?array
+	public function getReportInfo(bool $reload = false): array
 	{
 		if (is_null($this->config['report']) or $reload) {
 			$log = Log::getInstance();
@@ -213,7 +213,7 @@ class Backup {
 			}
 		}
 
-		return $this->config["report"] ?? null;
+		return $this->config["report"];
 	}
 
 	private function getOption(): array
