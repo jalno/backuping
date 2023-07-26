@@ -7,7 +7,7 @@ use packages\base\{Cli, Exception, Log as BaseLog, IO, Options, Date, Process, R
 use packages\backuping\{Backup, IO\Directory\FilterableDirectory, Log, Report};
 
 /**
- * @phpstan-type GeneralArgs array{'verbose'?:bool,'report'?:bool,'sources'?:string|string[],'destinations'?:string|string[]}
+ * @phpstan-type GeneralArgs array{verbose?: bool,report?: bool,sources?: string|string[],destinations?: string|string[]}
  */
 class Backuping extends Process {
 
@@ -18,12 +18,14 @@ class Backuping extends Process {
 	 * @param GeneralArgs $data
 	 */
 	public function backup(array $data) {
-		$this->loadConfig($data);
+		if (isset($data['verbose']) and $data['verbose']) {
+			Log::setLevel("debug");
+		}
+
 		$log = Log::getInstance();
 
 		$log->info("get backup from sources...");
 		$sources = $this->getSources($data);
-		$destinations = $this->getDestinations($data);
 
 		foreach ($sources as $source) {
 			$sourceID = $source->getID();
@@ -67,6 +69,7 @@ class Backuping extends Process {
 				$log->info("file for transfer:", $backupFileName, "size:", $this->getHumanReadableSize($fileForTransfer->size()));
 
 				$log->info("transfer file to destinations");
+				$destinations = $this->getDestinations($data);
 				foreach ($destinations as $destination) {
 					$retries = $source->getTransferRetries();
 					$log->debug("transfer retry is {$retries}");
@@ -125,11 +128,13 @@ class Backuping extends Process {
 	 * @param array{"verbose"?:bool,"report"?:bool,"sources"?:string|string[],"destination"?:string|string[],"backup-name"?:string,"restore-latest-backup"?:bool} $data
 	 */
 	public function restore(array $data) {
-		$this->loadConfig($data);
+		if (isset($data['verbose']) and $data['verbose']) {
+			Log::setLevel("debug");
+		}
+
 		$log = Log::getInstance();
 
 		$sources = $this->getSources($data);
-		$destinations = $this->getDestinations($data);
 
 		$backupNameToRestore = $data["backup-name"] ?? null;
 		if ($backupNameToRestore) {
@@ -153,6 +158,7 @@ class Backuping extends Process {
 
 				$findedBackups = array();
 				$log->info("check each destinations");
+				$destinations = $this->getDestinations($data);
 				foreach ($destinations as $destination) {
 					$destinationID = $destination->getID();
 					$directory = $destination->getDirectory();
@@ -252,16 +258,19 @@ class Backuping extends Process {
 	 * @param GeneralArgs $data
 	 */
 	public function cleanup(array $data) {
-		$this->loadConfig($data);
+		if (isset($data['verbose']) and $data['verbose']) {
+			Log::setLevel("debug");
+		}
+
 		$log = Log::getInstance();
 
 		$sources = $this->getSources($data);
-		$destinations = $this->getDestinations($data);
 
 		foreach ($sources as $source) {
 			$sourceID = $source->getID();
 			$log->info("cleanup old backups of that related to source: ({$sourceID})");
 			try {
+				$destinations = $this->getDestinations($data);
 				foreach ($destinations as $destination) {
 					$destinationID = $destination->getID();
 					$log->info("destination ID: ({$destinationID})");
@@ -359,8 +368,6 @@ class Backuping extends Process {
 		echo "\t" . "--restore-latest-backup" . "\t\t" . "restore the last backup file" . PHP_EOL;
 		echo PHP_EOL;
 
-		$this->loadConfig($data);
-
 		echo "Sources:" . PHP_EOL;
 		$sources = $this->getSources($data);
 		foreach ($sources as $source) {
@@ -377,11 +384,14 @@ class Backuping extends Process {
 	}
 
 	protected function report(?array $option) {
-		$this->loadConfig($option);
+		if (isset($option['verbose']) and $option['verbose']) {
+			BaseLog::setLevel("debug");
+		}
+
 		$log = BaseLog::getInstance();
 
 		$log->info("get report info");
-		$info = $this->backup->getReportInfo();
+		$info = $this->getBackup()->getReportInfo();
 		$log->reply("done", $info);
 
 		if ($info and $info["sender"] and $info["receivers"]) {
@@ -481,10 +491,13 @@ class Backuping extends Process {
 	}
 
 	protected function getSources(array $data): array {
-		$this->loadConfig($data);
+		if (isset($data['verbose']) and $data['verbose']) {
+			Log::setLevel("debug");
+		}
+
 		$log = Log::getInstance();
 
-		$allSources = $this->backup->getSources();
+		$allSources = $this->getBackup()->getSources();
 
 		$selectedSourceIDs = $data["sources"] ?? null;
 		if (!$selectedSourceIDs) {
@@ -516,10 +529,13 @@ class Backuping extends Process {
 	}
 
 	protected function getDestinations(array $data): array {
-		$this->loadConfig($data);
+		if (isset($data['verbose']) and $data['verbose']) {
+			Log::setLevel("debug");
+		}
+
 		$log = Log::getInstance();
 		
-		$allDestionations = $this->backup->getDestinations();
+		$allDestionations = $this->getBackup()->getDestinations();
 
 		$selectedDestinationIDs = $data["destinations"] ?? null;
 		if (!$selectedDestinationIDs) {
@@ -550,25 +566,21 @@ class Backuping extends Process {
 		return $destionations;
 	}
 
-	protected function loadConfig(array $data = array()): void {
-		$this->verbose = $data["verbose"] ?? false;
-		if ($this->verbose) {
-			Log::setLevel("debug");
-			BaseLog::setLevel("debug");
-		}
-		if ($this->backup === null) {
-			$log = BaseLog::getInstance();
-			$log->info("load config");
-			$this->backup = new Backup();
-			$this->backup->loadConfig();
-			$log->reply("done");
-		}
-	}
 	protected function getHumanReadableSize(int $size): string {
 		$base = log($size, 1024);
 		$suffixes = array('B', 'KB', 'MB', 'GB', 'TB');
 		return round(pow(1024, $base - floor($base)), 2) .' '. $suffixes[floor($base)];
 	}
+
+	private function getBackup()
+	{
+		if (!$this->backup) {
+			$this->backup = new Backup();
+		}
+
+		return $this->backup;
+	}
+
 	private function askQuestion(string $question, ?array $answers = null, bool $showAnswersOnNewLine = false): string {
 		do {
 			$helpToAsnwer = "";
