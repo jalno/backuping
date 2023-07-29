@@ -10,33 +10,31 @@ class Backup {
 	protected string $optionName;
 	protected bool $configLoaded = false;
 	protected array $config = array(
-		"sources" => array(),
-		"destinations" => array(),
-		"report" => array(
-			"subject" => null,
-			"sender" => null,
-			"receivers" => null,
-		),
+		"sources" => null,
+		"destinations" => null,
+		"report" => null,
 	);
+	private array $option = [];
 
 	public function __construct(string $optionName = self::CONFIG_OPTION_NAME) {
 		$this->optionName = $optionName;
 	}
 
-	public function loadConfig(bool $reload = false): ?array {
-		$log = Log::getInstance();
-		$log->info("Backup:loadConfig");
+	/**
+	 * @return Source[]
+	 */
+	public function getSources(bool $reload = false): array
+	{
+		if (is_null($this->config["sources"]) or $reload) {
+			$log = Log::getInstance();
 
-		if (!$this->configLoaded or $reload) {
+			$this->config["sources"] = [];
 
-			$option = Options::get($this->optionName);
-			if (!$option) {
-				$log->error("the config: '{$this->optionName}' is not found!");
-				throw new Error("packages.backuping.backup.config_not_found");
-			}
+			$option = $this->getOption();
 
 			$globalOptions = $option["options"] ?? null;
 			$log->info("main 'options':", $globalOptions);
+
 			if ($globalOptions) {
 				if (!is_array($globalOptions)) {
 					$log->reply()->error("options is not array!");
@@ -75,36 +73,99 @@ class Backup {
 
 			$log->info("try prepare sources...");
 			$sources = $option["sources"] ?? null;
-			if (empty($sources)) {
+
+			if (!$sources) {
 				$log->reply()->error("sources is empty!");
 				throw new Error("packages.backuping.Backup.sources_is_empty");
 			}
+
 			if (!is_array($sources)) {
 				$log->error("the given 'sources' is not array!");
 				throw new InvalidArgumentException("the given sources should be array");
 			}
+
 			foreach ($sources as $sourceArray) {
 				$this->addSource(Source::fromArray($sourceArray));
 			}
+		}
+
+		return $this->config["sources"];
+	}
+
+	public function addSource(Source $src): void
+	{
+		$id = $src->getID();
+		$sourcesIDs = array_map(fn(Source $s) => $s->getID(), $this->getSources());
+		if (in_array($id, $sourcesIDs)) {
+			throw new Error("packages.backuping.Backup.source_id_is_duplicate");
+		}
+
+		$this->config["sources"][] = $src;
+	}
+
+	/**
+	 * @return Destination[]
+	 */
+	public function getDestinations(bool $reload = false): array
+	{
+		if (is_null($this->config["destinations"]) or $reload) {
+			$log = Log::getInstance();
+
+			$this->config["destinations"] = [];
+
+			$option = $this->getOption();
 
 			$log->info("try prepare destinations...");
 			$destinations = $option["destinations"] ?? null;
-			if (empty($destinations)) {
-				$log->reply()->error("sources is empty!");
+			if (!$destinations) {
+				$log->reply()->error("destinations is empty!");
 				throw new Error("packages.backuping.Backup.destinations_is_empty");
 			}
+
 			if (!is_array($destinations)) {
 				$log->error("the given 'destinations' is not array!");
 				throw new InvalidArgumentException("the given destinations should be array");
 			}
+
 			foreach ($destinations as $destinationArray) {
 				$this->addDestination(Destination::fromArray($destinationArray));
 			}
+		}
+
+		return $this->config["destinations"];
+	}
+
+	public function addDestination(Destination $dst): void
+	{
+		$id = $dst->getID();
+		$destinationsIDs = array_map(fn(Destination $d) => $d->getID(), $this->getDestinations());
+		if (in_array($id, $destinationsIDs)) {
+			throw new Error("packages.backuping.Backup.destination_id_is_duplicate");
+		}
+		$this->config["destinations"][] = $dst;
+	}
+
+	/**
+	 * @return array{subject?:string,sender?:array{type?:string,options?:array{host:string,port:int}},receivers?:string[]}
+	 */
+	public function getReportInfo(bool $reload = false): array
+	{
+		if (is_null($this->config['report']) or $reload) {
+			$log = Log::getInstance();
+			
+			$this->config['report'] = [
+				"subject" => null,
+				"sender" => null,
+				"receivers" => null,
+			];
+
+			$option = $this->getOption();
 
 			$log->info("try prepare report");
 			$report = $option["report"] ?? null;
 			if (!$report) {
 				$log->warn("the report is empty, it seems no need to report");
+				$this->config['report'] = [];
 			} else {
 				$subject = $report["subject"] ?? "Backuping Report";
 				if (!is_string($subject)) {
@@ -147,44 +208,24 @@ class Backup {
 					$log->error("you should add receivers to report is sendable");
 					throw new InvalidArgumentException("you should add receivers to report is sendable");
 				}
+
 				$this->config["report"]["receivers"] = $receivers;
 			}
-
-			$this->configLoaded = true;
-		} else {
-			$log->reply("config is loaded");
 		}
-		return $this->config;
+
+		return $this->config["report"];
 	}
 
-	public function getSources(): array {
-		return $this->config["sources"];
-	}
-
-	public function addSource(Source $src): void {
-		$id = $src->getID();
-		$sourcesIDs = array_map(fn(Source $s) => $s->getID(), $this->getSources());
-		if (in_array($id, $sourcesIDs)) {
-			throw new Error("packages.backuping.Backup.source_id_is_duplicate");
+	private function getOption(): array
+	{
+		if (!$this->option) {
+			$this->option = Options::get($this->optionName);
+			if (!$this->option) {
+				throw new Error("packages.backuping.backup.config_not_found");
+			}
 		}
-		$this->config["sources"][] = $src;
-	}
 
-	public function getDestinations(): array {
-		return $this->config["destinations"];
-	}
-
-	public function addDestination(Destination $dst): void {
-		$id = $dst->getID();
-		$destinationsIDs = array_map(fn(Destination $d) => $d->getID(), $this->getDestinations());
-		if (in_array($id, $destinationsIDs)) {
-			throw new Error("packages.backuping.Backup.destination_id_is_duplicate");
-		}
-		$this->config["destinations"][] = $dst;
-	}
-
-	public function getReportInfo(): ?array {
-		return $this->config["report"] ?? null;
+		return $this->option;
 	}
 
 }
