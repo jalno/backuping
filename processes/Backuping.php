@@ -139,8 +139,19 @@ class Backuping extends Process {
 				}
 			};
 
+			$getBackupSubjectBasedOnSources = function() use($sources) {
+				$subject = 'backup';
+				if (1 == count($sources)) {
+					$subject .= ' ['.$sources[0]->getID().']';
+				} else {
+					$subject .= (count($this->getBackup()->getSources()) == count($sources) ? ' [full]' : '');
+				}
+
+				return $subject;
+			};
+
 			$this->report(array(
-				"subject" => "backup [".$getBackupStatus()."]",
+				'subject' => $getBackupSubjectBasedOnSources().' ['.$getBackupStatus().']',
 			));
 		}
 	}
