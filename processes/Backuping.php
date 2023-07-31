@@ -7,7 +7,7 @@ use packages\base\{Cli, Exception, Log as BaseLog, IO, Options, Date, Process, R
 use packages\backuping\{Backup, IO\Directory\FilterableDirectory, Log, Report};
 
 /**
- * @phpstan-type GeneralArgs array{verbose?: bool,report?: bool,sources?: string|string[],destinations?: string|string[]}
+ * @phpstan-type GeneralArgs array{verbose?: bool, v?: bool, vv?: bool, vvv?: bool,report?: bool,sources?: string|string[],destinations?: string|string[]}
  */
 class Backuping extends Process {
 
@@ -17,10 +17,9 @@ class Backuping extends Process {
 	/**
 	 * @param GeneralArgs $data
 	 */
-	public function backup(array $data) {
-		if (isset($data['verbose']) and $data['verbose']) {
-			Log::setLevel("debug");
-		}
+	public function backup(array $data)
+	{
+		Log::setLevel($this->getLogLevel($data));
 
 		$log = Log::getInstance();
 
@@ -72,11 +71,10 @@ class Backuping extends Process {
 				$destinations = $this->getDestinations($data);
 				foreach ($destinations as $destination) {
 					$retries = $source->getTransferRetries();
-					$log->debug("transfer retry is {$retries}");
 					$log->info("try transfer backup of source: ({$sourceID}) to destination: ({$destination->getID()})");
 					$successful = false;
 					do {
-						$log->debug("transfer retry is {$retries}");
+						$log->info("transfer retry is {$retries}");
 						try {
 							$directory = $destination->getDirectory();
 							if (!$directory->exists()) {
@@ -127,10 +125,9 @@ class Backuping extends Process {
 	/**
 	 * @param array{"verbose"?:bool,"report"?:bool,"sources"?:string|string[],"destination"?:string|string[],"backup-name"?:string,"restore-latest-backup"?:bool} $data
 	 */
-	public function restore(array $data) {
-		if (isset($data['verbose']) and $data['verbose']) {
-			Log::setLevel("debug");
-		}
+	public function restore(array $data)
+	{
+		Log::setLevel($this->getLogLevel($data));
 
 		$log = Log::getInstance();
 
@@ -257,10 +254,9 @@ class Backuping extends Process {
 	/**
 	 * @param GeneralArgs $data
 	 */
-	public function cleanup(array $data) {
-		if (isset($data['verbose']) and $data['verbose']) {
-			Log::setLevel("debug");
-		}
+	public function cleanup(array $data)
+	{
+		Log::setLevel($this->getLogLevel($data));
 
 		$log = Log::getInstance();
 
@@ -357,7 +353,9 @@ class Backuping extends Process {
 
 		echo PHP_EOL;
 		echo "Global Options:" . PHP_EOL;
-		echo "\t" . "--verbose" . "\t\t\t" . "print the logs for debug purposes" . PHP_EOL;
+		echo "\t" . "--verbose --vvv" . "\t\t\t" . "print the logs for debug purposes [debug log level]" . PHP_EOL;
+		echo "\t" . "--vv" . "\t\t\t\t" . "print the logs for debug purposes [info log level]" . PHP_EOL;
+		echo "\t" . "--v" . "\t\t\t\t" . "print the logs for debug purposes [warn log level]" . PHP_EOL;
 		echo "\t" . "--report" . "\t\t\t" . "pass to send report of the action to email" . PHP_EOL;
 		echo "\t" . "--sources=<source-id>" . "\t\t" . "is the id of source you defined in config (may be specified multiple times)" . PHP_EOL;
 		echo "\t" . "--destinations=<destination-id>\tis the id of source you defined in config (may be specified multiple times)" . PHP_EOL;
@@ -383,10 +381,9 @@ class Backuping extends Process {
 		echo PHP_EOL;
 	}
 
-	protected function report(?array $option) {
-		if (isset($option['verbose']) and $option['verbose']) {
-			BaseLog::setLevel("debug");
-		}
+	protected function report(?array $option)
+	{
+		BaseLog::setLevel($this->getLogLevel($option));
 
 		$log = BaseLog::getInstance();
 
@@ -490,11 +487,10 @@ class Backuping extends Process {
 		}
 	}
 
-	protected function getSources(array $data): array {
-		if (isset($data['verbose']) and $data['verbose']) {
-			Log::setLevel("debug");
-		}
-
+	protected function getSources(array $data): array
+	{
+		Log::setLevel($this->getLogLevel($data));
+		
 		$log = Log::getInstance();
 
 		$allSources = $this->getBackup()->getSources();
@@ -528,10 +524,9 @@ class Backuping extends Process {
 		return $sources;
 	}
 
-	protected function getDestinations(array $data): array {
-		if (isset($data['verbose']) and $data['verbose']) {
-			Log::setLevel("debug");
-		}
+	protected function getDestinations(array $data): array
+	{
+		Log::setLevel($this->getLogLevel($data));
 
 		$log = Log::getInstance();
 		
@@ -607,5 +602,27 @@ class Backuping extends Process {
 				return $response;
 			}
 		} while(true);
+	}
+
+	/**
+	 * @param array{verbose?:bool,v?:bool,vv?:bool,vvv?:bool} $data
+	 * 
+	 * @return string
+	 */
+	private function getLogLevel(array $data): string
+	{
+		if (isset($data['verbose'])) {
+			$data['vvv'] = $data['verbose'];
+		}
+
+		if (isset($data['vvv']) and $data['vvv']) {
+			return 'debug';
+		} elseif (isset($data['vv']) and $data['vv']) {
+			return 'info';
+		} elseif (isset($data['v']) and $data['v']) {
+			return 'warn';
+		} else {
+			return 'off';
+		}
 	}
 }
