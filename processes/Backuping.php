@@ -26,6 +26,9 @@ class Backuping extends Process {
 		$log->info("get backup from sources...");
 		$sources = $this->getSources($data);
 
+		$hasError = false;
+		$needToCheck = false;
+
 		foreach ($sources as $source) {
 			$sourceID = $source->getID();
 			$log->info("get backup from source: ({$sourceID})");
@@ -101,23 +104,54 @@ class Backuping extends Process {
 									$log->reply("no!");
 								}
 							} else {
-								$log->reply("faild! copyTo return false!");
+								$log->reply()->warn("faild! copyTo return false!");
+								$needToCheck = true;
 							}
 						} catch (\Exception $e) {
+							$needToCheck = true;
 							$log->reply()->error("failed! message: '" . $e->getMessage() . "' class:" . get_class($e), 'to string:', $e->__toString());
 						}
 					} while (!$successful and $retries-- > 0);
 				}
+
+				$fileTransferErrorMessage = (!$successful ? ('Can not transfer backup '.$fileForTransfer->getPath().' from source ['.$sourceID.'] to selected destinations') : '');
+
 				$log->info("remove ziped file ({$fileForTransfer->getPath()}) to free space");
 				$fileForTransfer->delete();
+
+				if ($fileTransferErrorMessage) {
+					throw new Exception($fileTransferErrorMessage);
+				}
 			} catch (\Exception $e) {
+				$hasError = true;
 				$log->error("error! message:", $e->getMessage(), "class:", get_class($e), 'to string:', $e->__toString());
 			}
 		}
 
+		$log->info('End backuping.');
+
 		if (!isset($data["report"]) or $data["report"]) {
+			$getBackupStatus = function() use($hasError, $needToCheck) {
+				if ($hasError) {
+					return 'ERROR';
+				} else {
+					return $needToCheck ? 'WARNING' : 'OK';
+				}
+			};
+
+			$getBackupSubjectBasedOnSources = function() use($sources) {
+				$subject = 'backup';
+				if (1 == count($sources)) {
+					$subject .= ' ['.$sources[0]->getID().']';
+				} else {
+					$subject .= (count($this->getBackup()->getSources()) == count($sources) ? ' [full]' : '');
+				}
+
+				return $subject;
+			};
+
 			$this->report(array(
-				"subject" => "backup",
+				'subject' => $getBackupSubjectBasedOnSources().' ['.$getBackupStatus().']',
 			));
 		}
 	}
