@@ -152,9 +152,15 @@ class Backuping extends Process {
 				return $subject;
 			};
 
-			$this->report(array(
+			$report = array(
 				'subject' => $getBackupSubjectBasedOnSources().' ['.$getBackupStatus().']',
-			));
+			);
+			foreach (['verbose', 'vvv', 'vv', 'v'] as $level) {
+				if (isset($data[$level])) {
+					$report[$level] = $data[$level];
+				}
+			}
+			$this->report($report);
 		}
 	}
 
