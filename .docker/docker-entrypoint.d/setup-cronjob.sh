@@ -8,7 +8,7 @@ then
 	if ! /bin/grep '/bin/backuping backup' /etc/crontabs/root > /dev/null 2>&1
 	then
 		/bin/echo "[Backuping]: cronjob is not configured, configure backuping cronjob...";
-		/bin/echo "$BACKUPING_BACKUP_CRON_EXPRESSION /bin/backuping backup" | crontab -;
+		/bin/echo "$BACKUPING_BACKUP_CRON_EXPRESSION /bin/backuping backup --verbose" | crontab -;
 	else
 		echo "[Backuping]: cronjob is configured, skip";
 	fi
