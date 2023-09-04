@@ -243,10 +243,14 @@ class Backuping extends Process {
 				} elseif ($backupNameToRestore) {
 					$log->info("you try to restore backup with name: ($backupNameToRestore)");
 				}
-				if ($countFindedBackups == 1) {
-					$backupFile = $findedBackups[0];
+				if ($backupFile) {
+					$log->info("try to restore: " . $backupFile["file"] . " from dest: " . $backupFile["destinationID"]);
 				} else {
-					$log->reply("more that on backup is found! you should select one of theme!");
+					if ($countFindedBackups > 1) {
+						$log->reply("more that on backup is found! you should select one of theme!");
+					} elseif ($countFindedBackups == 1) {
+						$log->reply("we found one backup, but you should select that explicitly!");
+					}
 
 					$x = 1;
 					$answers = array();
