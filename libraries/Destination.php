@@ -2,7 +2,7 @@
 namespace packages\backuping;
 
 use \InvalidArgumentException;
-use packages\base\{view\Error, IO, Log};
+use packages\base\{Date, view\Error, IO, Log};
 
 class Destination {
 
@@ -20,19 +20,44 @@ class Destination {
 			throw new InvalidArgumentException("the given 'id' index is not string!");
 		}
 
-		$directory = $config["directory"] ?? null;
-		if (empty($directory)) {
-			$log->error("you should pass 'directory' index that is instance of '" . IO\Directory::class . "'");
-			throw new InvalidArgumentException("you should pass 'directory' index that is instance of '" . IO\Directory::class . "'");
-		}
-
-		$directoryObj = null;
 		$options = $config["options"] ?? [];
 		if (!is_array($options)) {
 			$log->error("the given 'options' index is not array!");
 			throw new InvalidArgumentException("the given 'options' index is not array!");
 		}
 
+		$directoryObj = self::prepareDirectoryFromConfig($config);
+		if (isset($config["directory-ttl"]) and !is_numeric($config["directory-ttl"])) {
+			$log->error("the 'directory-ttl' should be a valid number that represent seconds to reload directory");
+			throw new InvalidArgumentException("the 'directory-ttl' should be a valid number that represent seconds to reload directory");
+		}
+
+		$lifetime = $config["lifetime"] ?? null;
+		if ($lifetime and !is_numeric($lifetime)) {
+			$log->error("the 'lifetime' should be a valid number");
+			throw new InvalidArgumentException("the 'lifetime' should be a valid number");
+		}
+
+		$log->info("destination object created! id:", $id);
+		return new self($id, $directoryObj, $lifetime, $options, $config);
+	}
+
+	protected static function prepareDirectoryFromConfig(array $config): IO\Directory {
+		$log = Log::getInstance();
+		$log->info("Destination:prepareDirectoryFromConfig");
+
+		$directory = $config["directory"] ?? null;
+		if (empty($directory)) {
+			$log->error("you should pass 'directory' index that is instance of '" . IO\Directory::class . "'");
+			throw new InvalidArgumentException("you should pass 'directory' index that is instance of '" . IO\Directory::class . "'");
+		}
+		$options = $config["options"] ?? [];
+		if (!is_array($options)) {
+			$log->error("the given 'options' index is not array!");
+			throw new InvalidArgumentException("the given 'options' index is not array!");
+		}
+
+		$directoryObj = null;
 		if (is_string($directory)) {
 			// start's with '.' or contains '/'
 			if (strpos($directory, "/") !== false or $directory[0] == ".") {
@@ -102,7 +127,6 @@ class Destination {
 					}
 				}
 			}
-
 		} elseif (is_callable($directory)) {
 			$log->info("directory is callable, so call it...");
 			$directoryObj = $directory($options);
@@ -112,27 +136,27 @@ class Destination {
 			$log->error("the given directory is not understood! type: '" . gettype($directory) . "'");
 			throw new InvalidArgumentException("the given directory is not understood! type: '" . gettype($directory) . "'");
 		}
-
-		$lifetime = $config["lifetime"] ?? null;
-
-		if ($lifetime and !is_numeric($lifetime)) {
-			$log->error("the 'lifetime' should be a valid number");
-			throw new InvalidArgumentException("the 'lifetime' should be a valid number");
-		}
-
-		$log->info("destination object created! id:", $id);
-		return new self($id, $directoryObj, $lifetime, $options);
+		return $directoryObj;
 	}
 
 	protected string $id;
 
+	protected int $directoryTTL = 7;
+	protected int $directoryPreparedAt;
 	protected IO\Directory $directory;
 
 	protected ?int $lifetime;
 
 	protected array $options;
 
-	public function __construct(string $id, IO\Directory $directory, ?int $lifetime = null, array $options = array()) {
+	protected array $rawConfig;
+
+	public function __construct(string $id, IO\Directory $directory, ?int $lifetime = null, array $options = array(), array $rawConfig = []) {
+		if (isset($options['directory-ttl'])) {
+			$this->directoryTTL = $options['directory-ttl'];
+		}
+		$this->directoryPreparedAt = Date::time();
+		$this->rawConfig = $rawConfig;
 		$this->directory = $directory;
 		$this->lifetime = $lifetime;
 		$this->options = $options;
@@ -144,6 +168,20 @@ class Destination {
 	}
 
 	public function getDirectory(): IO\Directory {
+		$directoryIsExpired = (
+			!$this->directoryPreparedAt or
+			($this->directoryPreparedAt + $this->directoryTTL < Date::time())
+		);
+		$shouldReload = (
+			(!$this->directory instanceof \packages\base\IO\directory\Local) and
+			$directoryIsExpired
+		);
+
+		if ($shouldReload) {
+			unset($this->directory);
+			$this->directoryPreparedAt = Date::time();
+			$this->directory = self::prepareDirectoryFromConfig($this->rawConfig);
+		}
 		return $this->directory;
 	}
 
