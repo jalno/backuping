@@ -79,7 +79,7 @@ class Backuping extends Process {
 					$retries = $source->getTransferRetries();
 					$log->info("try transfer backup of source: ({$sourceID}) to destination: ({$destination->getID()})");
 					do {
-						$log->info("transfer retry is {$retries}");
+						Log::getInstance()->info("transfer retry is {$retries}");
 						try {
 							$directory = $destination->getDirectory();
 							if (!$directory->exists()) {
